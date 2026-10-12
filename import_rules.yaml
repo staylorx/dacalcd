@@ -1,0 +1,37 @@
+# The import graph of `lib/`, enforced by the analyzer through the
+# `import_rules` plugin. The model is the bottom; the operations sit on it;
+# nothing reaches the public entry point from inside lib/src.
+
+rules:
+  # The model does not depend on the operations.
+  - target: lib/src/domain/**
+    disallow: "**"
+    exclude_disallow:
+      - lib/src/domain/**
+      - package:equatable/**
+      - package:fpdart/**
+      - dart:**
+    reason: |
+      The model only imports its own area plus the sanctioned value-type
+      packages (equatable, fpdart).
+
+  # The operations may import the model (and value-type packages) only.
+  - target: lib/src/usecases/**
+    disallow: "**"
+    exclude_disallow:
+      - lib/src/usecases/**
+      - lib/src/domain/**
+      - package:equatable/**
+      - package:fpdart/**
+      - dart:**
+    reason: |
+      Use cases depend on the domain contracts, never on anything above them,
+      and never on the public entry point.
+
+  # Internal files use the internal barrels.
+  - target: lib/src/**
+    disallow: package:decalcd/decalcd.dart
+    reason: |
+      Import `../domain/domain.dart` or `../usecases/usecases.dart`. The public
+      entry point is for consumers; reaching it from inside lib/src is a cycle
+      through the front door.

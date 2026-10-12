@@ -1,0 +1,38 @@
+name: decalcd
+description: >-
+  Communication layer for controlling the Dacal CD carousel (DC-101 / DC-300)
+  over a serial or USB-backed serial link on Windows.
+version: 0.1.0
+repository: https://github.com/taybiz/decalcd
+
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+
+dependencies:
+  args: ^2.7.0
+  equatable: ^3.0.0
+  fpdart: ^1.2.0
+  path: ^1.9.0
+  sembast: ^3.8.11
+  serial_port_win32: ^3.0.0
+  win32: ^6.4.0
+
+dev_dependencies:
+  dart_arch_test: ^0.3.1
+  lints: ^6.0.0
+  melos: ^8.8.0
+  shouldly: ^0.5.0
+  test: ^1.25.6
+
+# Topology C: this single-package repo IS the melos workspace root, so the
+# scripts CI calls live here instead of in a melos.yaml (a bad smell since melos
+# 7 — see the bible, §2 and §3.3). Run them with `dart run melos run <script>`.
+melos:
+  useRootAsPackage: true
+  scripts:
+    format: dart format --output=none --set-exit-if-changed .
+    analyze: dart analyze --fatal-infos --fatal-warnings
+    test: dart test
+    publish-dry: dart pub publish --dry-run
+    clean: dart run melos clean
+    clean:deep: git clean -fdx

@@ -1,0 +1,8 @@
+# https://dart.dev/tools/private-files
+# Created by `dart pub`
+.dart_tool/
+build/
+
+# Runtime / local data (sembast library database, seeded dev data)
+decalcd.db
+tool/.dart_tool/

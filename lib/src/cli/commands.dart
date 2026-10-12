@@ -1,0 +1,364 @@
+// Commands for the Decal CD library CLI. `part of` the cli.dart library so
+// they share its imports and the LineWriter / DecalCliDeps types.
+
+part of '../cli/cli.dart';
+
+/// Folds a settled [Either] into an exit code + output: on a `Right` applies
+/// [onOk] to the value; on a `Left` writes its message to [deps.err] and
+/// returns 1.
+Future<int> foldExit<T>(
+  Either<DecalFailure, T> result,
+  DecalCliDeps deps, {
+  required FutureOr<int> Function(T value) onOk,
+}) async {
+  return result.fold((failure) {
+    deps.err('error: ${failure.message}');
+    return 1;
+  }, (value) async => onOk(value));
+}
+
+/// Runs an fpdart task, folding its [Either] result through [foldExit].
+Future<int> runTask<T>(
+  TaskEither<DecalFailure, T> task,
+  DecalCliDeps deps, {
+  required FutureOr<int> Function(T value) onOk,
+}) async => foldExit(await task.run(), deps, onOk: onOk);
+
+/// `decal devices` — list every known carousel device.
+class ListDevicesCommand extends Command<int> {
+  /// Creates the command bound to [deps].
+  ListDevicesCommand(this._deps);
+
+  final DecalCliDeps _deps;
+
+  @override
+  String get name => 'devices';
+
+  @override
+  String get description => 'List all carousel devices known to the library.';
+
+  @override
+  Future<int> run() => runTask(
+    _deps.service.listDevices(),
+    _deps,
+    onOk: (devices) {
+      if (devices.isEmpty) {
+        _deps.out('No devices.');
+        return 0;
+      }
+      for (final device in devices) {
+        _deps.out(
+          '${device.serialCode}  '
+          '(id ${device.meta.id}, sku ${device.skuId}, '
+          'capacity ${device.capacity})',
+        );
+      }
+      return 0;
+    },
+  );
+}
+
+/// `decal device-info <id-or-serial>` — show one device's details.
+class ShowDeviceCommand extends Command<int> {
+  /// Creates the command bound to [deps].
+  ShowDeviceCommand(this._deps);
+
+  final DecalCliDeps _deps;
+
+  @override
+  String get name => 'device-info';
+
+  @override
+  String get description =>
+      'Show details for a carousel device, by serial code.';
+
+  @override
+  Future<int> run() {
+    final rest = argResults!.rest;
+    if (rest.isEmpty) {
+      _deps.err('usage: decal device-info <serial-code>');
+      return Future.value(1);
+    }
+    final serialCode = rest.first;
+    return runTask(
+      GetDeviceBySerialCode(_deps.library).call(serialCode: serialCode),
+      _deps,
+      onOk: (device) {
+        _deps.out('Device ${device.serialCode}');
+        _deps.out('  id:       ${device.meta.id}');
+        _deps.out('  sku:      ${device.skuId}');
+        _deps.out('  capacity: ${device.capacity}');
+        if (device.name != null) _deps.out('  name:     ${device.name}');
+        return 0;
+      },
+    );
+  }
+}
+
+/// `decal slots <device-id>` — list the slots of a device.
+class ListSlotsCommand extends Command<int> {
+  /// Creates the command bound to [deps].
+  ListSlotsCommand(this._deps);
+
+  final DecalCliDeps _deps;
+
+  @override
+  String get name => 'slots';
+
+  @override
+  String get description =>
+      'List the slots of a carousel device (device id shown by `decal devices`).';
+
+  @override
+  Future<int> run() {
+    final rest = argResults!.rest;
+    if (rest.isEmpty) {
+      _deps.err('usage: decal slots <device-id>');
+      return Future.value(1);
+    }
+    final deviceId = rest.first;
+    return runTask(
+      ListSlotsForDevice(_deps.library).call(deviceId: deviceId),
+      _deps,
+      onOk: (slots) {
+        if (slots.isEmpty) {
+          _deps.out('No slots for device $deviceId.');
+        } else {
+          for (final slot in slots) {
+            final disc = slot.disc;
+            if (disc == null) {
+              _deps.out('  ${slot.slotNumber}: empty');
+            } else {
+              _deps.out(
+                '  ${slot.slotNumber}: ${disc.skuId} '
+                '(disc id ${disc.meta.id}'
+                '${disc.serialNumber == null ? '' : ', serial ${disc.serialNumber}'})',
+              );
+            }
+          }
+        }
+        return 0;
+      },
+    );
+  }
+}
+
+/// `decal insert <device-id> <slot> <sku-id>` — place a disc into a slot.
+class InsertDiscCommand extends Command<int> {
+  /// Creates the command bound to [deps].
+  InsertDiscCommand(this._deps);
+
+  final DecalCliDeps _deps;
+
+  @override
+  String get name => 'insert';
+
+  @override
+  String get description =>
+      'Insert a disc (by catalog sku) into a device slot.';
+
+  @override
+  Future<int> run() {
+    final rest = argResults!.rest;
+    if (rest.length < 3) {
+      _deps.err('usage: decal insert <device-id> <slot> <sku-id>');
+      return Future.value(1);
+    }
+    final deviceId = rest[0];
+    final slot = parsePositiveInt(rest[1], _deps, 'slot');
+    if (slot == null) return Future.value(1);
+    final skuId = rest[2];
+
+    final disc = Disc(meta: newMeta(), skuId: skuId);
+    final insert = InsertDisc(
+      repository: _deps.library,
+      unitOfWork: _deps.unitOfWork,
+    );
+    return runTask(
+      insert.call(deviceId: deviceId, slotNumber: slot, disc: disc),
+      _deps,
+      onOk: (filledSlot) {
+        _deps.out(
+          'Inserted disc ${disc.skuId} into $deviceId slot '
+          '${filledSlot.slotNumber} (disc id ${disc.meta.id}).',
+        );
+        return 0;
+      },
+    );
+  }
+}
+
+/// `decal remove <device-id> <slot>` — empty a slot (remove its disc).
+class RemoveDiscCommand extends Command<int> {
+  /// Creates the command bound to [deps].
+  RemoveDiscCommand(this._deps);
+
+  final DecalCliDeps _deps;
+
+  @override
+  String get name => 'remove';
+
+  @override
+  String get description =>
+      'Remove the disc from a device slot, leaving it empty.';
+
+  @override
+  Future<int> run() {
+    final rest = argResults!.rest;
+    if (rest.length < 2) {
+      _deps.err('usage: decal remove <device-id> <slot>');
+      return Future.value(1);
+    }
+    final deviceId = rest[0];
+    final slot = parsePositiveInt(rest[1], _deps, 'slot');
+    if (slot == null) return Future.value(1);
+
+    return runTask(
+      RemoveDisc(_deps.library).call(deviceId: deviceId, slotNumber: slot),
+      _deps,
+      onOk: (emptiedSlot) {
+        _deps.out('Emptied $deviceId slot ${emptiedSlot.slotNumber}.');
+        return 0;
+      },
+    );
+  }
+}
+
+/// `decal locate <disc-id>` — find the slot holding a disc.
+class LocateDiscCommand extends Command<int> {
+  /// Creates the command bound to [deps].
+  LocateDiscCommand(this._deps);
+
+  final DecalCliDeps _deps;
+
+  @override
+  String get name => 'locate';
+
+  @override
+  String get description =>
+      'Locate the device slot currently holding a disc (by disc id).';
+
+  @override
+  Future<int> run() {
+    final rest = argResults!.rest;
+    if (rest.isEmpty) {
+      _deps.err('usage: decal locate <disc-id>');
+      return Future.value(1);
+    }
+    final discId = rest.first;
+    return runTask(
+      LocateDisc(_deps.library).call(discId: discId),
+      _deps,
+      onOk: (slot) {
+        if (slot == null) {
+          _deps.out('Disc $discId is not in any slot.');
+        } else {
+          _deps.out(
+            'Disc $discId is in device ${slot.deviceId} slot '
+            '${slot.slotNumber}.',
+          );
+        }
+        return 0;
+      },
+    );
+  }
+}
+
+/// `decal carousel <slot>` — move the carousel to a slot.
+///
+/// This is the one command that reaches the USB/serial layer (via the
+/// injected [DacalClient]) rather than the repository. When no carousel is
+/// wired, it reports it instead of crashing.
+class CarouselCommand extends Command<int> {
+  /// Creates the command bound to [deps].
+  CarouselCommand(this._deps);
+
+  final DecalCliDeps _deps;
+
+  @override
+  String get name => 'carousel';
+
+  @override
+  String get description =>
+      'Move the carousel spindle to a slot (USB/serial device command).';
+
+  @override
+  Future<int> run() async {
+    final rest = argResults!.rest;
+    if (rest.isEmpty) {
+      _deps.err('usage: decal carousel <slot>');
+      return 1;
+    }
+    final slot = parsePositiveInt(rest.first, _deps, 'slot');
+    if (slot == null) return 1;
+
+    final carousel = _deps.carousel;
+    if (carousel == null) {
+      _deps.err('No carousel is wired into this CLI.');
+      return 1;
+    }
+
+    // The carousel layer uses its own DacalFailure hierarchy (distinct from
+    // the domain DecalFailure), so fold it manually here.
+    final result = await carousel.moveToSlot(slot);
+    return result.fold(
+      (failure) {
+        _deps.err('carousel error: $failure');
+        return 1;
+      },
+      (response) {
+        _deps.out('carousel moved to slot $slot (${response.status.token}).');
+        return 0;
+      },
+    );
+  }
+}
+
+/// `decal --port COM3 detect` — probe for the Decal CD machine and report
+/// whether it is reachable.
+///
+/// Runs the core machine probe [probeMachine], which opens the configured
+/// port and issues the protocol's status query (a ping) to the machine. When
+/// no port has been wired in, the probe cannot run and is reported as absent.
+class DetectMachineCommand extends Command<int> {
+  /// Creates the command bound to [deps].
+  DetectMachineCommand(this._deps);
+
+  final DecalCliDeps _deps;
+
+  @override
+  String get name => 'detect';
+
+  @override
+  String get description => 'Probe for the Decal CD machine and report '
+      'whether it is reachable.';
+
+  @override
+  Future<int> run() async {
+    final carousel = _deps.carousel;
+    if (carousel == null) {
+      _deps.err('No carousel is wired into this CLI (no --port given).');
+      return 1;
+    }
+
+    final result = await probeMachine(carousel).run();
+    return result.fold(
+      (failure) {
+        _deps.err('detect error: $failure');
+        return 1;
+      },
+      (probe) {
+        if (probe.detected) {
+          final detected = probe as MachineDetected;
+          _deps.out(
+            'Machine detected (device $kDecalMachineSerialCode): '
+            '${detected.status.token}.',
+          );
+          return 0;
+        }
+        _deps.err('No machine detected: ${(probe as MachineNotDetected).reason}');
+        return 1;
+      },
+    );
+  }
+}
