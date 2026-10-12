@@ -29,6 +29,7 @@
 /// `Future<Either<DecalFailure, T>>`.
 library;
 
+export 'src/autoseek/autoseek.dart';
 export 'src/command.dart';
 export 'src/config/serial_config_service.dart';
 export 'src/dacal_client.dart';
