@@ -15,8 +15,10 @@ void main() {
   Device device(String id, {String serial = '67808', int capacity = 150}) =>
       Device(
         meta: meta(id),
-        serialCode: serial,
-        skuId: 'decal-150',
+        manufacturer: 'Dacal',
+        sku: 'DC-300',
+        model: 'CD Library II',
+        serialNumber: serial,
         capacity: capacity,
       );
 
@@ -65,7 +67,7 @@ void main() {
       result.isRight().should.be(true);
       final d = result.getOrElse((_) => fail('expected Right'));
       d.meta.id.should.be('dev-1');
-      d.serialCode.should.be('67808');
+      d.serialNumber.should.be('67808');
     });
 
     test('Then it returns a failure for an unknown serial code', () async {

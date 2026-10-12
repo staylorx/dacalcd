@@ -16,8 +16,10 @@ Future<void> main(List<String> args) async {
   final now = DateTime.now().toUtc().toIso8601String();
   final device = Device(
     meta: Meta(id: 'dev-67808', notes: '', createdAt: now, updatedAt: now),
-    serialCode: '67808',
-    skuId: 'decal-150',
+    manufacturer: 'Dacal',
+    sku: 'DC-300',
+    model: 'CD Library II',
+    serialNumber: '67808',
     capacity: 150,
     name: 'Main Rack',
   );

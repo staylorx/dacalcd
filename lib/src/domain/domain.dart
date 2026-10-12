@@ -18,4 +18,6 @@ export 'entities/disc.dart';
 export 'entities/meta.dart';
 export 'entities/serial_config.dart';
 export 'entities/slot.dart';
+export 'entities/trait.dart';
+export 'entities/trait_attribute_definition.dart';
 export 'failures/decal_failures.dart';

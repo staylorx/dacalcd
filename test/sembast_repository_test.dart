@@ -7,8 +7,13 @@ import 'package:test/test.dart';
 
 import 'support/shared_contract_suite.dart';
 
+var _dbSeq = 0;
+
 Future<Database> openDb() => databaseFactoryMemory.openDatabase(
-  'decalcd-test',
+  // A unique name per open gives each test a fresh, isolated store — the
+  // memory factory reuses an open database by name, which would otherwise
+  // leak rows between contract tests.
+  'decalcd-test-${_dbSeq++}',
   version: librarySchemaVersion,
   onVersionChanged: libraryMigrations,
 );
@@ -48,8 +53,10 @@ void main() {
           .saveDevice(
             device: Device(
               meta: meta(deviceId),
-              serialCode: deviceId == 'dev-a' ? '67808' : '4444',
-              skuId: 'decal-150',
+              manufacturer: 'Dacal',
+              sku: 'DC-300',
+              model: 'CD Library II',
+              serialNumber: deviceId == 'dev-a' ? '67808' : '4444',
               capacity: capacity,
             ),
           )

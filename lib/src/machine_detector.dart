@@ -4,8 +4,8 @@ import 'dacal_client.dart';
 import 'dacal_failure.dart';
 import 'dacal_response.dart';
 
-/// The serial code of the Decal CD machine at this site. The machine is a
-/// physical carousel whose identity is its [serialCode] (`'67808'` here), so
+/// The serial number of the Decal CD machine at this site. The machine is a
+/// physical carousel whose identity is its serial number (`'67808'` here), so
 /// machine detection keys on reaching a unit on the probed transport.
 const String kDecalMachineSerialCode = '67808';
 

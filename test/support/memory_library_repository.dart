@@ -21,10 +21,12 @@ class MemoryLibraryRepository implements ILibraryRepository, MemoryBacked {
     _devices.clear();
     _slots.clear();
     for (final entry in rows.entries) {
-      if (entry.value.containsKey('serial_code')) {
-        _devices[entry.key] = entry.value;
-      } else {
+      // A row is a slot iff it carries a slot number; device rows carry the
+      // machine fields (manufacturer / serial_number / capacity / ...).
+      if (entry.value.containsKey('slot_number')) {
         _slots[entry.key] = entry.value;
+      } else {
+        _devices[entry.key] = entry.value;
       }
     }
   }
@@ -38,7 +40,7 @@ class MemoryLibraryRepository implements ILibraryRepository, MemoryBacked {
     required String serialCode,
   }) {
     for (final d in _devices.values) {
-      if (Device.fromJson(d).serialCode == serialCode) {
+      if (Device.fromJson(d).serialNumber == serialCode) {
         return TaskEither.of(Device.fromJson(d));
       }
     }

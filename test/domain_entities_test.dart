@@ -11,20 +11,79 @@ void main() {
   );
 
   group('Given a Device', () {
-    test('Then it round-trips its serial code and capacity through JSON', () {
+    test('Then it round-trips machine fields and JSON', () {
       final device = Device(
         meta: meta('dev-1'),
-        serialCode: '67808',
-        skuId: 'decal-150',
+        manufacturer: 'Dacal',
+        sku: 'DC-300',
+        model: 'CD Library II',
+        serialNumber: '67808',
         capacity: 150,
         name: 'Carousel',
+        serialConfig: const SerialConfig(portName: 'COM3', baudRate: 9600),
       );
 
       final back = Device.fromJson(device.toJson());
-      back.serialCode.should.be('67808');
-      back.skuId.should.be('decal-150');
+      back.manufacturer.should.be('Dacal');
+      back.sku.should.be('DC-300');
+      back.model.should.be('CD Library II');
+      back.serialNumber.should.be('67808');
       back.capacity.should.be(150);
       back.name.should.be('Carousel');
+      back.serialConfig?.portName.should.be('COM3');
+      back.serialConfig?.baudRate.should.be(9600);
+    });
+
+    test('Then it carries the serializable trait with the serial_number attribute',
+        () {
+      final device = Device(
+        meta: meta('dev-1'),
+        manufacturer: 'Dacal',
+        sku: 'DC-300',
+        model: 'CD Library II',
+        serialNumber: '67808',
+        capacity: 150,
+      );
+
+      device.traits.map((t) => t.name).should.contain('serializable');
+      (device.traitAttributeValues['serial_number'] as String).should
+          .be('67808');
+      (device.traitAttributeValues[kSerialNumberTraitAttributeKey] as String)
+          .should
+          .be('67808');
+      Device
+          .traitAttributeDefinitions
+          .map((a) => a.key)
+          .should
+          .contain('serial_number');
+    });
+
+    test('Then multiple machines coexist with distinct serials and models',
+        () {
+      final a = Device(
+        meta: meta('m1'),
+        manufacturer: 'Dacal',
+        sku: 'DC-300',
+        model: 'CD Library II',
+        serialNumber: '67808',
+        capacity: 150,
+      );
+      final b = Device(
+        meta: meta('m2'),
+        manufacturer: 'Primera',
+        sku: 'PF-600',
+        model: 'CD Library III',
+        serialNumber: '9999',
+        capacity: 300,
+      );
+
+      final machines = [a, b];
+      machines.map((m) => m.serialNumber).should.be(['67808', '9999']);
+      machines.map((m) => m.model).should.be(['CD Library II', 'CD Library III']);
+      machines.expand((m) => m.traits).map((t) => t.name).should.be([
+        'serializable',
+        'serializable',
+      ]);
     });
   });
 

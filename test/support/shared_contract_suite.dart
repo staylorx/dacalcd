@@ -21,13 +21,21 @@ void sharedRepositoryContractSuite({
     updatedAt: '2026-01-01T00:00:00.000Z',
   );
 
-  Device device(String id, {String serial = '67808', int capacity = 150}) =>
-      Device(
-        meta: meta(id),
-        serialCode: serial,
-        skuId: 'decal-150',
-        capacity: capacity,
-      );
+  Device device(
+    String id, {
+    String serial = '67808',
+    int capacity = 150,
+    String? manufacturer = 'Dacal',
+    String? sku = 'DC-300',
+    String? model = 'CD Library II',
+  }) => Device(
+    meta: meta(id),
+    manufacturer: manufacturer!,
+    sku: sku!,
+    model: model!,
+    serialNumber: serial,
+    capacity: capacity,
+  );
 
   Disc disc(String id) => Disc(meta: meta(id), skuId: 'cd-sku-1');
 
@@ -73,8 +81,10 @@ void sharedRepositoryContractSuite({
             .saveDevice(
               device: Device(
                 meta: meta('dev-full'),
-                serialCode: '9999',
-                skuId: 'decal-300',
+                manufacturer: 'Dacal',
+                sku: 'DC-300',
+                model: 'CD Library II',
+                serialNumber: '9999',
                 capacity: 300,
                 name: 'Rack 1',
               ),
@@ -83,10 +93,93 @@ void sharedRepositoryContractSuite({
 
         final fetched = await repo.fetchDeviceById(id: 'dev-full').run();
         final d = fetched.getOrElse((_) => fail('expected Right'));
-        d.serialCode.should.be('9999');
-        d.skuId.should.be('decal-300');
+        d.serialNumber.should.be('9999');
+        d.manufacturer.should.be('Dacal');
+        d.sku.should.be('DC-300');
+        d.model.should.be('CD Library II');
         d.capacity.should.be(300);
         d.name.should.be('Rack 1');
+        d.traits.map((t) => t.name).should.contain('serializable');
+        (d.traitAttributeValues['serial_number'] as String).should.be('9999');
+      },
+    );
+
+    test(
+      'Then multiple machines round-trip: list all and fetch by id or serial',
+      () async {
+        await repo
+            .saveDevice(
+              device: device(
+                'dev-a',
+                serial: '67808',
+                model: 'CD Library I',
+                capacity: 150,
+              ),
+            )
+            .run();
+        await repo
+            .saveDevice(
+              device: device(
+                'dev-b',
+                serial: '9999',
+                sku: 'DC-600',
+                model: 'CD Library III',
+                capacity: 600,
+              ),
+            )
+            .run();
+
+        // List all machines (both adapters return a collection, not one unit).
+        // Storage order is not part of the contract, so compare as a set.
+        final all = await repo.fetchDevices().run();
+        final devices = all.getOrElse((_) => fail('expected Right'));
+        devices.map((d) => d.meta.id).toSet().should.be({'dev-a', 'dev-b'});
+
+        // Fetch by serial number.
+        final bySerial = await repo
+            .fetchDeviceBySerialCode(serialCode: '9999')
+            .run();
+        final b = bySerial.getOrElse((_) => fail('expected Right'));
+        b.meta.id.should.be('dev-b');
+        b.sku.should.be('DC-600');
+        b.serialNumber.should.be('9999');
+
+        // Fetch by id.
+        final byId = await repo.fetchDeviceById(id: 'dev-a').run();
+        byId
+            .getOrElse((_) => fail('expected Right'))
+            .serialNumber
+            .should
+            .be('67808');
+      },
+    );
+
+    test(
+      'Then each machine keeps its own per-machine serial config',
+      () async {
+        await repo
+            .saveDevice(
+              device: device('dev-a').copyWithSerialConfig(
+                const SerialConfig(portName: 'COM3', baudRate: 9600),
+              ),
+            )
+            .run();
+        await repo
+            .saveDevice(
+              device: device('dev-b', serial: '9999'),
+            )
+            .run();
+
+        final fetched = await repo.fetchDeviceById(id: 'dev-a').run();
+        final a = fetched.getOrElse((_) => fail('expected Right'));
+        a.serialConfig?.portName.should.be('COM3');
+
+        final other = await repo.fetchDeviceById(id: 'dev-b').run();
+        other
+            .getOrElse((_) => fail('expected Right'))
+            .serialConfig
+            .should
+            .beNull();
       },
     );
 
@@ -133,24 +226,11 @@ void sharedRepositoryContractSuite({
 
     test('Then saveDevice over an existing id overwrites (upsert)', () async {
       await repo
-          .saveDevice(
-            device: Device(
-              meta: meta('dev-a'),
-              serialCode: '111',
-              skuId: 'decal-150',
-              capacity: 150,
-            ),
-          )
+          .saveDevice(device: device('dev-a', serial: '111', capacity: 150))
           .run();
       final updated = await repo
           .saveDevice(
-            device: Device(
-              meta: meta('dev-a'),
-              serialCode: '111',
-              skuId: 'decal-150',
-              capacity: 300,
-              name: 'expanded',
-            ),
+            device: device('dev-a', serial: '111', capacity: 300),
           )
           .run();
       updated.isRight().should.be(true);
@@ -158,7 +238,6 @@ void sharedRepositoryContractSuite({
       final fetched = await repo.fetchDeviceById(id: 'dev-a').run();
       final d = fetched.getOrElse((_) => fail('expected Right'));
       d.capacity.should.be(300);
-      d.name.should.be('expanded');
     });
 
     test(

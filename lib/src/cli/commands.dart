@@ -48,9 +48,10 @@ class ListDevicesCommand extends Command<int> {
       }
       for (final device in devices) {
         _deps.out(
-          '${device.serialCode}  '
-          '(id ${device.meta.id}, sku ${device.skuId}, '
-          'capacity ${device.capacity})',
+          '${device.serialNumber}  '
+          '(id ${device.meta.id}, manufacturer ${device.manufacturer}, '
+          'sku ${device.sku}, model ${device.model}, capacity '
+          '${device.capacity})',
         );
       }
       return 0;
@@ -84,11 +85,14 @@ class ShowDeviceCommand extends Command<int> {
       GetDeviceBySerialCode(_deps.library).call(serialCode: serialCode),
       _deps,
       onOk: (device) {
-        _deps.out('Device ${device.serialCode}');
-        _deps.out('  id:       ${device.meta.id}');
-        _deps.out('  sku:      ${device.skuId}');
-        _deps.out('  capacity: ${device.capacity}');
-        if (device.name != null) _deps.out('  name:     ${device.name}');
+        _deps.out('Device ${device.serialNumber}');
+        _deps.out('  id:           ${device.meta.id}');
+        _deps.out('  manufacturer: ${device.manufacturer}');
+        _deps.out('  sku:          ${device.sku}');
+        _deps.out('  model:        ${device.model}');
+        _deps.out('  serial:       ${device.serialNumber}');
+        _deps.out('  capacity:     ${device.capacity}');
+        if (device.name != null) _deps.out('  name:         ${device.name}');
         return 0;
       },
     );

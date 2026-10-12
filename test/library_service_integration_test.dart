@@ -28,8 +28,10 @@ Future<MemoryLibraryRepository> _seed() async {
       .saveDevice(
         device: Device(
           meta: _meta('dev-a'),
-          serialCode: '67808',
-          skuId: 'decal-150',
+          manufacturer: 'Dacal',
+          sku: 'DC-300',
+          model: 'CD Library II',
+          serialNumber: '67808',
           capacity: 3,
           name: 'Unit 67808',
         ),
@@ -95,7 +97,7 @@ void main() {
         // Same device record from the service and from the CLI path.
         snapshot.devices.should.haveCount(1);
         final svc = snapshot.devices.single;
-        svc.serialCode.should.be('67808');
+        svc.serialNumber.should.be('67808');
         svc.name.should.be('Unit 67808');
         snapshot.firstDeviceSlots.should.haveCount(3);
       },
@@ -189,8 +191,10 @@ void main() {
           .saveDevice(
             device: Device(
               meta: _meta('dev-a'),
-              serialCode: '67808',
-              skuId: 'decal-150',
+              manufacturer: 'Dacal',
+              sku: 'DC-300',
+              model: 'CD Library II',
+              serialNumber: '67808',
               capacity: 3,
             ),
           )

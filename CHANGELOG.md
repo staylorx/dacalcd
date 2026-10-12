@@ -12,6 +12,16 @@ not a work log. Group by release, newest on top; a release tag is a plain
 
 ### Added
 
+- **Multiple CD library machines data model.** `Device` is now a full machine
+  type carrying `manufacturer` (e.g. `'Dacal'`), `sku` (e.g. `'DC-300'`),
+  `model` (e.g. `'CD Library II'`) and `serialNumber` (e.g. `'67808'`), plus
+  per-machine serial-port details (`serialConfig`) — connection settings are
+  per machine, not one app-wide port. The repository returns a `List<Device>`
+  so the library manages any number of machines. A new **`serializable`
+  trait** (with the `serial_number` trait attribute) captures serial numbers
+  generically: every machine is serializable and exposes its serial as the
+  `serial_number` trait-attribute value.
+
 - **Retract (unslot) primitive on the serial client.** `DacalClient.retract()`
   sends the `RETRACT` (`0x0e`) opcode on its own — the firmware's "release the
   disc out of the reader" command, the complement to `moveToSlot`. This is

@@ -48,7 +48,7 @@ class SembastLibraryRepository implements ILibraryRepository {
   }) => TaskEither.tryCatch(() async {
     final records = await deviceStore.find(
       _client,
-      finder: Finder(filter: Filter.equals('serial_code', serialCode)),
+      finder: Finder(filter: Filter.equals('serial_number', serialCode)),
     );
     if (records.isEmpty) {
       throw _NotFound('Device with serial code "$serialCode" not found');

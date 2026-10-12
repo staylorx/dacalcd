@@ -41,8 +41,10 @@ Meta _meta(String id) => Meta(
 
 Device _device(String id) => Device(
   meta: _meta(id),
-  serialCode: '67808',
-  skuId: 'decal-150',
+  manufacturer: 'Dacal',
+  sku: 'DC-300',
+  model: 'CD Library II',
+  serialNumber: '67808',
   capacity: 3,
 );
 
@@ -77,16 +79,23 @@ void main() {
       final code = await cli.run(['devices']);
       code.should.be(0);
       out.joined.should.contain('67808');
+      out.joined.should.contain('manufacturer Dacal');
+      out.joined.should.contain('sku DC-300');
+      out.joined.should.contain('model CD Library II');
       out.joined.should.contain('capacity 3');
     });
 
-    test('`device-info <serial>` shows device details', () async {
+    test('`device-info <serial>` shows machine details', () async {
       final out = _Capture();
       final cli = _cli(repo: await _seed(), out: out);
       final code = await cli.run(['device-info', '67808']);
       code.should.be(0);
       out.joined.should.contain('Device 67808');
-      out.joined.should.contain('capacity: 3');
+      out.joined.should.contain('manufacturer: Dacal');
+      out.joined.should.contain('sku:          DC-300');
+      out.joined.should.contain('model:        CD Library II');
+      out.joined.should.contain('serial:       67808');
+      out.joined.should.contain('capacity:     3');
     });
 
     test('`device-info` with unknown serial reports an error', () async {
