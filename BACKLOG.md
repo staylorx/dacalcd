@@ -10,14 +10,16 @@ section.
 
 ## Open
 
-- [ ] **Per-machine serial connection (multi-machine).** The data model now
-      carries `Device.serialConfig` per CD library machine, but the app-level
-      serial path is still single-port: `SerialConfigService` /
-      `ISerialConfigStore` and the autoseek flow assume one port for the app,
-      and `machine_detector` probes one hardcoded serial (`kDecalMachineSerialCode`).
-      Wire the connection layer to one serial port *per machine* (list/fetch a
-      machine's own `serialConfig`), so the CLI/TUI/Flutter can drive more than
-      one unit without sharing a single app-wide port.
+- [ ] **Finish multi-machine serial: drop the residual single-machine
+      assumptions.** The per-machine connection path is done (`Device.serialConfig`,
+      per-machine list/fetch/select/auto-detect, no shared app-wide port), but core
+      still keys machine detection to one hardcoded serial
+      (`machine_detector.kDecalMachineSerialCode`, probed by autoseek and the CLI
+      `detect-machine` command), and the single-port file-backed
+      `SerialConfigService`/`ISerialConfigStore`/`SerialConfigFileStore` stack is
+      now unused by the app's serial path (only a failure/contract test exercises
+      it). Make detection identity per-machine and remove the dead single-port
+      config machinery once nothing references it.
 
 - [ ] **Config §13 conformance.** Implement the three-layer precedence chain
       from bible §13.1 (`--config`/`-c` flag > env vars > default config file)
