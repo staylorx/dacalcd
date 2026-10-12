@@ -10,6 +10,12 @@ final StoreRef<String, Map<String, Object?>> deviceStore = stringMapStoreFactory
 final StoreRef<String, Map<String, Object?>> slotStore = stringMapStoreFactory
     .store('slots');
 
+/// The store that holds every catalogued [Disc] row, keyed by the disc's
+/// opaque [Meta.id]. The library catalog lives here, independent of the
+/// inline disc copies embedded on [slotStore] rows.
+final StoreRef<String, Map<String, Object?>> discStore = stringMapStoreFactory
+    .store('discs');
+
 /// The store that marks the storage schema version reached by the latest
 /// migration. Written by [libraryMigrations].
 final StoreRef<String, Map<String, Object?>> schemaStore = stringMapStoreFactory

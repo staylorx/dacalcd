@@ -138,4 +138,94 @@ void main() {
       snapshot.firstDeviceSlots.should.beNull();
     });
   });
+
+  group('LibraryService — disc catalog facade', () {
+    test('addDisc + listDiscs + getDisc round-trip through the facade', () async {
+      final repo = MemoryLibraryRepository();
+      final service = LibraryService(repository: repo);
+
+      final added = (await service
+          .addDisc(skuId: 'cd-sku-1', label: 'Rumours')
+          .run())
+          .getOrElse((f) => fail('addDisc failed: $f'));
+
+      final listed = (await service.listDiscs().run())
+          .getOrElse((f) => fail('listDiscs failed: $f'));
+      listed.should.haveCount(1);
+      listed.single.skuId.should.be('cd-sku-1');
+
+      final fetched = (await service.getDisc(added.meta.id).run())
+          .getOrElse((f) => fail('getDisc failed: $f'));
+      fetched.label.should.be('Rumours');
+    });
+
+    test('changeDisc updates a catalogued disc via the facade', () async {
+      final repo = MemoryLibraryRepository();
+      final service = LibraryService(repository: repo);
+      final added = (await service.addDisc(skuId: 'cd-sku-1').run())
+          .getOrElse((f) => fail('addDisc failed: $f'));
+
+      final changed = (await service
+          .changeDisc(
+            discId: added.meta.id,
+            label: 'Rumours 2004',
+            serialNumber: 'SN-7',
+          )
+          .run())
+          .getOrElse((f) => fail('changeDisc failed: $f'));
+      changed.label.should.be('Rumours 2004');
+      changed.serialNumber.should.be('SN-7');
+    });
+
+    test('removeDiscFromLibrary refuses a disc that is placed in a slot',
+        () async {
+      final repo = MemoryLibraryRepository();
+      final service = LibraryService(repository: repo);
+      final added = (await service.addDisc(skuId: 'cd-sku-1').run())
+          .getOrElse((f) => fail('addDisc failed: $f'));
+
+      // Place it into the carousel, then try to remove it from the library.
+      await repo
+          .saveDevice(
+            device: Device(
+              meta: _meta('dev-a'),
+              serialCode: '67808',
+              skuId: 'decal-150',
+              capacity: 3,
+            ),
+          )
+          .run();
+      await repo
+          .updateSlot(
+            slot: Slot(
+              meta: _meta('dev-a-slot-1'),
+              deviceId: 'dev-a',
+              slotNumber: 1,
+              disc: added,
+            ),
+          )
+          .run();
+
+      final result = await service.removeDiscFromLibrary(added.meta.id).run();
+      result.isLeft().should.beTrue();
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<InUseFailure>();
+    });
+
+    test('a duplicate sku via the facade fails AlreadyExists', () async {
+      final repo = MemoryLibraryRepository();
+      final service = LibraryService(repository: repo);
+      (await service.addDisc(skuId: 'cd-sku-1').run())
+          .getOrElse((f) => fail('addDisc failed: $f'));
+
+      final result = await service.addDisc(skuId: 'cd-sku-1').run();
+      result.isLeft().should.beTrue();
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<AlreadyExistsFailure>();
+    });
+  });
 }

@@ -306,5 +306,85 @@ void sharedRepositoryContractSuite({
       result.isRight().should.be(true);
       result.getOrElse((_) => fail('expected Right')).should.beNull();
     });
+
+    test('Then saveDisc catalogues a disc and fetchDisc returns it', () async {
+      final saved = await repo
+          .saveDisc(disc: Disc(meta: meta('disc-a'), skuId: 'cd-sku-1'))
+          .run();
+      saved.isRight().should.be(true);
+
+      final fetched = await repo.fetchDisc(discId: 'disc-a').run();
+      fetched
+          .getOrElse((_) => fail('expected Right'))
+          .skuId
+          .should
+          .be('cd-sku-1');
+    });
+
+    test('Then saveDisc over an existing id updates the disc (upsert)', () async {
+      await repo
+          .saveDisc(disc: Disc(meta: meta('disc-a'), skuId: 'cd-sku-1'))
+          .run();
+      await repo
+          .saveDisc(
+            disc: Disc(
+              meta: meta('disc-a'),
+              skuId: 'cd-sku-2',
+              label: 'A',
+              serialNumber: 'SN-1',
+            ),
+          )
+          .run();
+
+      final d = (await repo.fetchDisc(discId: 'disc-a').run())
+          .getOrElse((_) => fail('expected Right'));
+      d.skuId.should.be('cd-sku-2');
+      d.label.should.be('A');
+      d.serialNumber.should.be('SN-1');
+    });
+
+    test('Then fetchDisc fails NotFound for an unknown disc', () async {
+      final result = await repo.fetchDisc(discId: 'ghost').run();
+      result.isLeft().should.be(true);
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<NotFoundFailure>();
+    });
+
+    test('Then listDiscs returns the catalogue in sku-id order', () async {
+      await repo
+          .saveDisc(disc: Disc(meta: meta('disc-b'), skuId: 'cd-sku-9'))
+          .run();
+      await repo
+          .saveDisc(disc: Disc(meta: meta('disc-a'), skuId: 'cd-sku-1'))
+          .run();
+
+      final result = await repo.listDiscs().run();
+      result
+          .getOrElse((_) => fail('expected Right'))
+          .map((d) => d.meta.id)
+          .should
+          .be(['disc-a', 'disc-b']);
+    });
+
+    test('Then deleteDisc removes a catalogue disc', () async {
+      await repo
+          .saveDisc(disc: Disc(meta: meta('disc-a'), skuId: 'cd-sku-1'))
+          .run();
+      final result = await repo.deleteDisc(discId: 'disc-a').run();
+      result.isRight().should.be(true);
+
+      (await repo.fetchDisc(discId: 'disc-a').run()).isLeft().should.be(true);
+    });
+
+    test('Then deleteDisc fails NotFound for an unknown disc', () async {
+      final result = await repo.deleteDisc(discId: 'ghost').run();
+      result.isLeft().should.be(true);
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<NotFoundFailure>();
+    });
   });
 }

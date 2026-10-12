@@ -47,6 +47,53 @@ class LibraryService {
   TaskEither<DecalFailure, List<Slot>> listSlotsForDevice(String deviceId) =>
       ListSlotsForDevice(repository).call(deviceId: deviceId);
 
+  /// Lists the library's disc catalog, ordered by sku id then label.
+  ///
+  /// This is the read side of the library's own collection of discs, distinct
+  /// from the carousel placements (see [listSlotsForDevice]). A catalogue disc
+  /// may or may not be currently placed in a machine slot.
+  TaskEither<DecalFailure, List<Disc>> listDiscs() =>
+      ListDiscs(repository).call();
+
+  /// Fetches one catalogued disc by id. [NotFoundFailure] when absent.
+  TaskEither<DecalFailure, Disc> getDisc(String discId) =>
+      GetDisc(repository).call(discId: discId);
+
+  /// Adds a new disc to the library catalog.
+  ///
+  /// [AlreadyExistsFailure] when a disc for [skuId] is already catalogued.
+  TaskEither<DecalFailure, Disc> addDisc({
+    required String skuId,
+    String? label,
+    String? serialNumber,
+  }) => AddDiscToLibrary(repository: repository).call(
+    skuId: skuId,
+    label: label,
+    serialNumber: serialNumber,
+  );
+
+  /// Removes a catalogued disc from the library.
+  ///
+  /// [InUseFailure] when the disc is currently placed in a carousel slot.
+  TaskEither<DecalFailure, Disc> removeDiscFromLibrary(String discId) =>
+      RemoveDiscFromLibrary(repository).call(discId: discId);
+
+  /// Changes a catalogued disc's attributes.
+  ///
+  /// `null` fields are left unchanged; [AlreadyExistsFailure] when the new sku
+  /// id would collide with a different disc.
+  TaskEither<DecalFailure, Disc> changeDisc({
+    required String discId,
+    String? skuId,
+    String? label,
+    String? serialNumber,
+  }) => ChangeDiscInLibrary(repository: repository).call(
+    discId: discId,
+    skuId: skuId,
+    label: label,
+    serialNumber: serialNumber,
+  );
+
   /// Loads the devices plus, when at least one exists, the slots of the first
   /// device.
   ///

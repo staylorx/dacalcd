@@ -74,12 +74,25 @@ and so are the discs it holds.
 | `Device` | A physical Decal CD carousel, unique by `serialCode` per machine (the unit here is `'67808'`). It is itself a catalog SKU (`skuId`) whose trait attribute is the total CD count (`capacity`, e.g. 150). |
 | `Slot` | One position in a device's carousel, identified by a `slotNumber` unique within that device (1..capacity). Empty or holding exactly one `Disc`. |
 | `Disc` | A CD/DVD held by the library — a catalog SKU (`skuId`), so it can be classified by the catalog's traits. The library leans on `SkuAssociation` links to relate disc SKUs to the carousel SKU and to each other. |
+| The library catalog | The library's own collection of `Disc`s, independent of carousel placement. A catalogue disc may be in the machine (one slot) or not. |
 
-Relationship: **a `Device` has many `Slot`s, and each `Slot` holds at most one
-`Disc`.** Operations are single-action use cases typed against the
-`ILibraryRepository` contract: `ListDevices`, `GetDeviceBySerialCode`,
-`ListSlotsForDevice`, `GetSlotStatus`, `InsertDisc`, `RemoveDisc`,
-`LocateDisc`. Every call returns an fpdart
+Relationship: **a `Device` has many `Slot`s, each `Slot` holds at most one `Disc`, and
+the library catalog tracks its `Disc`s independently of those placements.**
+Operations are single-action use cases typed against the `ILibraryRepository`
+contract:
+
+- Read: `ListDevices`, `GetDeviceBySerialCode`, `ListSlotsForDevice`,
+  `GetSlotStatus`, `ListDiscs`, `GetDisc`, `LocateDisc`.
+- Add / remove / change a disc **in the library**: `AddDiscToLibrary` (refuses a
+  duplicate sku with `AlreadyExistsFailure`), `RemoveDiscFromLibrary` (refuses
+  with `InUseFailure` while the disc is in a carousel slot), `ChangeDiscInLibrary`
+  (updates sku / label / serial number and refreshes `Meta.updatedAt`; syncs the
+  slot's inline copy when the disc is placed).
+- Add / remove a disc **in the machine** (a specific slot): `InsertDisc` (refuses
+  an occupied slot and clears the disc's previous slot, atomically when a unit of
+  work is passed), `RemoveDisc`.
+
+Every call returns an fpdart
 `TaskEither<DecalFailure, T>`; call `.run()` for a
 `Future<Either<DecalFailure, T>>`.
 

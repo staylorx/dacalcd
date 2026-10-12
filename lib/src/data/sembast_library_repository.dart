@@ -127,6 +127,45 @@ class SembastLibraryRepository implements ILibraryRepository {
         if (records.isEmpty) return null;
         return Slot.fromJson(records.first.value);
       }, _storageError);
+
+  @override
+  TaskEither<DecalFailure, Disc> saveDisc({required Disc disc}) =>
+      TaskEither.tryCatch(() async {
+        await discStore.record(disc.meta.id).put(_client, disc.toJson());
+        return disc;
+      }, _storageError);
+
+  @override
+  TaskEither<DecalFailure, Disc> fetchDisc({required String discId}) =>
+      TaskEither.tryCatch(() async {
+        final record = await discStore.record(discId).get(_client);
+        if (record == null) {
+          throw _NotFound('Disc "$discId" not found');
+        }
+        return Disc.fromJson(record);
+      }, _failureOrStorageError);
+
+  @override
+  TaskEither<DecalFailure, List<Disc>> listDiscs() =>
+      TaskEither.tryCatch(() async {
+        final records = await discStore.find(
+          _client,
+          finder: Finder(sortOrders: [
+            SortOrder('sku_id'),
+            SortOrder('label'),
+          ]),
+        );
+        return records.map((r) => Disc.fromJson(r.value)).toList();
+      }, _failureOrStorageError);
+
+  @override
+  TaskEither<DecalFailure, void> deleteDisc({required String discId}) =>
+      TaskEither.tryCatch(() async {
+        final deleted = await discStore.record(discId).delete(_client);
+        if (deleted == null) {
+          throw _NotFound('Disc "$discId" not found');
+        }
+      }, _failureOrStorageError);
 }
 
 /// A repository-internal "not found" signal. It is caught by

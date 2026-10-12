@@ -11,6 +11,7 @@ class MemoryLibraryRepository implements ILibraryRepository, MemoryBacked {
 
   final Map<String, Map<String, dynamic>> _devices = {};
   final Map<String, Map<String, dynamic>> _slots = {};
+  final Map<String, Map<String, dynamic>> _discs = {};
 
   @override
   Map<String, Map<String, dynamic>> get rows => {..._devices, ..._slots};
@@ -104,6 +105,41 @@ class MemoryLibraryRepository implements ILibraryRepository, MemoryBacked {
       if (slot.isOccupied && slot.disc?.meta.id == discId) {
         return TaskEither.of(slot);
       }
+    }
+    return TaskEither.of(null);
+  }
+
+  @override
+  TaskEither<DecalFailure, Disc> saveDisc({required Disc disc}) {
+    _discs[disc.meta.id] = disc.toJson();
+    return TaskEither.of(disc);
+  }
+
+  @override
+  TaskEither<DecalFailure, Disc> fetchDisc({required String discId}) {
+    final record = _discs[discId];
+    if (record == null) {
+      return TaskEither.left(NotFoundFailure('Disc "$discId" not found'));
+    }
+    return TaskEither.of(Disc.fromJson(record));
+  }
+
+  @override
+  TaskEither<DecalFailure, List<Disc>> listDiscs() {
+    final discs = _discs.values.map(Disc.fromJson).toList()
+      ..sort((a, b) {
+        final bySku = a.skuId.compareTo(b.skuId);
+        if (bySku != 0) return bySku;
+        return (a.label ?? '').compareTo(b.label ?? '');
+      });
+    return TaskEither.of(discs);
+  }
+
+  @override
+  TaskEither<DecalFailure, void> deleteDisc({required String discId}) {
+    final existed = _discs.remove(discId) != null;
+    if (!existed) {
+      return TaskEither.left(NotFoundFailure('Disc "$discId" not found'));
     }
     return TaskEither.of(null);
   }
