@@ -37,6 +37,15 @@ not a work log. Group by release, newest on top; a release tag is a plain
   serial number, and the serial stays retrievable as the `serial_number`
   value of the `serializable` trait. Serial numbers are unique per machine.
 
+- **Per-machine serial config storage.** Serial port/comm settings now live on
+  the machine's own `Device.serialConfig` (already carried on `Device`) and are
+  written through a new `UpdateDeviceSerialConfig` use case — set or clear a
+  machine's COM port without touching its identity fields — exposed via
+  `LibraryService.updateSerialConfig`. `migrateLegacySerialConfig` applies a
+  legacy, app-wide selected port onto the first machine with none, so an
+  existing single-port install is carried over gracefully instead of being
+  stranded in the old shared-config shape.
+
 - **Retract (unslot) primitive on the serial client.** `DacalClient.retract()`
   sends the `RETRACT` (`0x0e`) opcode on its own — the firmware's "release the
   disc out of the reader" command, the complement to `moveToSlot`. This is

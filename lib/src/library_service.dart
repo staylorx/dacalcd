@@ -98,6 +98,21 @@ class LibraryService {
   TaskEither<DecalFailure, void> deleteDevice(String deviceId) =>
       DeleteDevice(repository).call(deviceId: deviceId);
 
+  /// Sets or clears a machine's per-machine serial connection config.
+  ///
+  /// Serial port/comm settings belong to a single machine, so they live on
+  /// the machine's [Device.serialConfig] (persisted through the repository)
+  /// rather than in a shared app-wide config. Pass a [SerialConfig] to set
+  /// the connection, or `null` to clear it. [NotFoundFailure] when the
+  /// machine is absent.
+  TaskEither<DecalFailure, Device> updateSerialConfig({
+    required String deviceId,
+    required SerialConfig? serialConfig,
+  }) => UpdateDeviceSerialConfig(repository: repository).call(
+    deviceId: deviceId,
+    serialConfig: serialConfig,
+  );
+
   /// Lists a device's slots, in slot-number order.
   TaskEither<DecalFailure, List<Slot>> listSlots(String deviceId) =>
       ListSlotsForDevice(repository).call(deviceId: deviceId);

@@ -31,6 +31,7 @@ library;
 
 export 'src/autoseek/autoseek.dart';
 export 'src/command.dart';
+export 'src/config/legacy_serial_config_migration.dart';
 export 'src/config/serial_config_service.dart';
 export 'src/dacal_client.dart';
 export 'src/library_service.dart';

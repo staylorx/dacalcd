@@ -28,3 +28,4 @@ export 'remove_disc.dart';
 export 'remove_disc_from_library.dart';
 export 'sequence.dart';
 export 'update_device.dart';
+export 'update_device_serial_config.dart';
