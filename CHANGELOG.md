@@ -22,6 +22,21 @@ not a work log. Group by release, newest on top; a release tag is a plain
   generically: every machine is serializable and exposes its serial as the
   `serial_number` trait-attribute value.
 
+- **CRUD API + storage for multiple machines.** The repository contract gained
+  `deleteDevice` (removes a machine and its slots in one step, so a removed
+  machine leaves no orphaned records), implemented by both the sembast and
+  in-memory adapters. New use cases — `AddDevice`, `GetDeviceById`,
+  `UpdateDevice`, `DeleteDevice` — join the existing `ListDevices` /
+  `GetDeviceBySerialCode` to make machine management full CRUD: list all
+  machines, fetch one by id *or* serial number, register a new machine
+  (minting its id, refusing a duplicate serial), update its identity fields,
+  and delete it. `LibraryService` (the shared CLI/TUI/Flutter front door)
+  exposes all five, and new CLI commands `decal device-add` / `device-remove`
+  / `device-update` drive them; `decal device-info` now accepts an id or a
+  serial. Every response carries the machine's manufacturer, sku, model and
+  serial number, and the serial stays retrievable as the `serial_number`
+  value of the `serializable` trait. Serial numbers are unique per machine.
+
 - **Retract (unslot) primitive on the serial client.** `DacalClient.retract()`
   sends the `RETRACT` (`0x0e`) opcode on its own — the firmware's "release the
   disc out of the reader" command, the complement to `moveToSlot`. This is

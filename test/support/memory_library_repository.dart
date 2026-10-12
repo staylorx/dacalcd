@@ -65,6 +65,16 @@ class MemoryLibraryRepository implements ILibraryRepository, MemoryBacked {
   }
 
   @override
+  TaskEither<DecalFailure, void> deleteDevice({required String id}) {
+    final existed = _devices.remove(id) != null;
+    if (!existed) {
+      return TaskEither.left(NotFoundFailure('Device "$id" not found'));
+    }
+    _slots.removeWhere((_, value) => value['device_id'] == id);
+    return TaskEither.of(null);
+  }
+
+  @override
   TaskEither<DecalFailure, List<Slot>> listSlots({required String deviceId}) {
     if (!_devices.containsKey(deviceId)) {
       return TaskEither.left(NotFoundFailure('Device "$deviceId" not found'));

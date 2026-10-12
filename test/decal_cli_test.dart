@@ -106,6 +106,73 @@ void main() {
       err.joined.should.contain('error');
     });
 
+    test('`device-info <id>` shows machine details by opaque id', () async {
+      final out = _Capture();
+      final cli = _cli(repo: await _seed(), out: out);
+      final code = await cli.run(['device-info', 'dev-a']);
+      code.should.be(0);
+      out.joined.should.contain('Device 67808');
+      out.joined.should.contain('id:           dev-a');
+    });
+
+    test('`device-add` registers a new machine and `devices` lists it', () async {
+      final repo = await _seed();
+      final out = _Capture();
+      final cli = _cli(repo: repo, out: out);
+      final code = await cli.run(
+        ['device-add', 'Dacal', 'DC-600', 'CD Library III', '9999', '600', 'Rack 2'],
+      );
+      code.should.be(0);
+      out.joined.should.contain('Registered machine 9999');
+
+      final out2 = _Capture();
+      final cli2 = _cli(repo: repo, out: out2);
+      await cli2.run(['devices']);
+      out2.joined.should.contain('9999');
+      out2.joined.should.contain('model CD Library III');
+    });
+
+    test('`device-add` refuses a duplicate serial', () async {
+      final err = _Capture();
+      final cli = _cli(repo: await _seed(), err: err);
+      final code = await cli.run(
+        ['device-add', 'Dacal', 'DC-300', 'CD Library II', '67808', '150'],
+      );
+      code.should.be(1);
+      err.joined.should.contain('already registered');
+    });
+
+    test('`device-update` changes a machine by serial', () async {
+      final repo = await _seed();
+      final out = _Capture();
+      final cli = _cli(repo: repo, out: out);
+      final code = await cli.run(
+        ['device-update', '67808', '--capacity=300', '--name=Big Rack'],
+      );
+      code.should.be(0);
+      out.joined.should.contain('Updated machine 67808');
+
+      final out2 = _Capture();
+      final cli2 = _cli(repo: repo, out: out2);
+      await cli2.run(['device-info', 'dev-a']);
+      out2.joined.should.contain('capacity:     300');
+      out2.joined.should.contain('name:         Big Rack');
+    });
+
+    test('`device-remove` deletes a machine by serial', () async {
+      final repo = await _seed();
+      final out = _Capture();
+      final cli = _cli(repo: repo, out: out);
+      final code = await cli.run(['device-remove', '67808']);
+      code.should.be(0);
+      out.joined.should.contain('Removed machine 67808');
+
+      final out2 = _Capture();
+      final cli2 = _cli(repo: repo, out: out2);
+      await cli2.run(['devices']);
+      out2.joined.should.contain('No devices.');
+    });
+
     test('`slots <device-id>` lists slots', () async {
       final out = _Capture();
       final cli = _cli(repo: await _seed(), out: out);

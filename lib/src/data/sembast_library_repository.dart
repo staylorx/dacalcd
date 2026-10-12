@@ -74,6 +74,24 @@ class SembastLibraryRepository implements ILibraryRepository {
       }, _storageError);
 
   @override
+  TaskEither<DecalFailure, void> deleteDevice({required String id}) =>
+      TaskEither.tryCatch(() async {
+        final deleted = await deviceStore.record(id).delete(_client);
+        if (deleted == null) {
+          throw _NotFound('Device "$id" not found');
+        }
+        // Cascade: remove every slot belonging to the deleted machine so it
+        // leaves no orphaned records.
+        final slots = await slotStore.find(
+          _client,
+          finder: Finder(filter: Filter.equals('device_id', id)),
+        );
+        for (final slot in slots) {
+          await slotStore.record(slot.key).delete(_client);
+        }
+      }, _failureOrStorageError);
+
+  @override
   TaskEither<DecalFailure, List<Slot>> listSlots({required String deviceId}) =>
       TaskEither.tryCatch(() async {
         final device = await deviceStore.record(deviceId).get(_client);

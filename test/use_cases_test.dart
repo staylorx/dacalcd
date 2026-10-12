@@ -82,6 +82,240 @@ void main() {
     });
   });
 
+  group('Given the get device by id use case', () {
+    test('Then it finds the device with that id', () async {
+      seedDevice(repo, 'dev-1', 1);
+      final result = await GetDeviceById(repo)(id: 'dev-1').run();
+      result.isRight().should.be(true);
+      final d = result.getOrElse((_) => fail('expected Right'));
+      d.meta.id.should.be('dev-1');
+      d.serialNumber.should.be('67808');
+    });
+
+    test('Then it returns a failure for an unknown id', () async {
+      final result = await GetDeviceById(repo)(id: 'ghost').run();
+      result.isLeft().should.be(true);
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<NotFoundFailure>();
+    });
+  });
+
+  group('Given the add device use case', () {
+    AddDevice addDevice(String id) =>
+        AddDevice(repository: repo, idGenerator: () => id);
+
+    test('Then it registers a machine with the serial as a trait attribute',
+        () async {
+      final result = await addDevice('dev-1').call(
+        manufacturer: 'Dacal',
+        sku: 'DC-300',
+        model: 'CD Library II',
+        serialNumber: '67808',
+        capacity: 150,
+        name: 'Main Rack',
+      ).run();
+      result.isRight().should.be(true);
+      final d = result.getOrElse((_) => fail('expected Right'));
+      d.meta.id.should.be('dev-1');
+      d.manufacturer.should.be('Dacal');
+      d.sku.should.be('DC-300');
+      d.model.should.be('CD Library II');
+      d.serialNumber.should.be('67808');
+      d.capacity.should.be(150);
+      d.name.should.be('Main Rack');
+      // Serial is stored under the 'serializable' trait's 'serial_number'
+      // attribute and is retrievable from the read side.
+      d.traits.map((t) => t.name).should.contain('serializable');
+      (d.traitAttributeValues['serial_number'] as String).should.be('67808');
+
+      final fetched = await GetDeviceBySerialCode(repo)(
+        serialCode: '67808',
+      ).run();
+      fetched
+          .getOrElse((_) => fail('expected Right'))
+          .serialNumber
+          .should
+          .be('67808');
+    });
+
+    test('Then it registers multiple machines with distinct serials', () async {
+      await addDevice('dev-1').call(
+        manufacturer: 'Dacal',
+        sku: 'DC-300',
+        model: 'CD Library II',
+        serialNumber: '67808',
+        capacity: 150,
+      ).run();
+      final result = await addDevice('dev-2').call(
+        manufacturer: 'Dacal',
+        sku: 'DC-600',
+        model: 'CD Library III',
+        serialNumber: '9999',
+        capacity: 600,
+      ).run();
+      result.isRight().should.be(true);
+
+      final all = await ListDevices(repo)().run();
+      all
+          .getOrElse((_) => fail('expected Right'))
+          .map((d) => d.meta.id)
+          .should
+          .be(['dev-1', 'dev-2']);
+    });
+
+    test('Then it refuses a duplicate serial number', () async {
+      await addDevice('dev-1').call(
+        manufacturer: 'Dacal',
+        sku: 'DC-300',
+        model: 'CD Library II',
+        serialNumber: '67808',
+        capacity: 150,
+      ).run();
+      final result = await addDevice('dev-2').call(
+        manufacturer: 'Dacal',
+        sku: 'DC-600',
+        model: 'CD Library III',
+        serialNumber: '67808',
+        capacity: 600,
+      ).run();
+      result.isLeft().should.be(true);
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<AlreadyExistsFailure>();
+    });
+
+    test('Then it refuses a blank serial number', () async {
+      final result = await addDevice('dev-1').call(
+        manufacturer: 'Dacal',
+        sku: 'DC-300',
+        model: 'CD Library II',
+        serialNumber: '   ',
+        capacity: 150,
+      ).run();
+      result.isLeft().should.be(true);
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<InvalidInputFailure>();
+    });
+
+    test('Then it refuses a non-positive capacity', () async {
+      final result = await addDevice('dev-1').call(
+        manufacturer: 'Dacal',
+        sku: 'DC-300',
+        model: 'CD Library II',
+        serialNumber: '67808',
+        capacity: 0,
+      ).run();
+      result.isLeft().should.be(true);
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<InvalidInputFailure>();
+    });
+  });
+
+  group('Given the update device use case', () {
+    test('Then it changes identity fields and refreshes updatedAt', () async {
+      seedDevice(repo, 'dev-1', 1);
+      final before = (await GetDeviceById(repo)(id: 'dev-1').run())
+          .getOrElse((_) => fail('expected Right'));
+
+      final changedAt = DateTime.utc(2026, 2, 1, 8, 30, 0);
+      final result = await UpdateDevice(
+        repository: repo,
+        clock: () => changedAt,
+      ).call(
+        deviceId: 'dev-1',
+        manufacturer: 'Acme',
+        model: 'CD Rack 9000',
+        serialNumber: '12345',
+        capacity: 300,
+      ).run();
+      result.isRight().should.be(true);
+      final changed = result.getOrElse((_) => fail('expected Right'));
+      changed.manufacturer.should.be('Acme');
+      changed.model.should.be('CD Rack 9000');
+      changed.serialNumber.should.be('12345');
+      changed.capacity.should.be(300);
+      changed.meta.updatedAt.should.be('2026-02-01T08:30:00.000Z');
+      changed.meta.updatedAt.should.not.be(before.meta.updatedAt);
+
+      final fetched = await GetDeviceById(repo)(id: 'dev-1').run();
+      fetched
+          .getOrElse((_) => fail('expected Right'))
+          .serialNumber
+          .should
+          .be('12345');
+    });
+
+    test('Then untouched fields are unchanged', () async {
+      seedDevice(repo, 'dev-1', 1);
+      final result = await UpdateDevice(repository: repo).call(
+        deviceId: 'dev-1',
+        name: 'Rack 2',
+      ).run();
+      final changed = result.getOrElse((_) => fail('expected Right'));
+      changed.manufacturer.should.be('Dacal');
+      changed.sku.should.be('DC-300');
+      changed.model.should.be('CD Library II');
+      changed.serialNumber.should.be('67808');
+      changed.capacity.should.be(150);
+      changed.name.should.be('Rack 2');
+    });
+
+    test('Then it refuses a serial used by another machine', () async {
+      seedDevice(repo, 'dev-1', 1);
+      seedDevice(repo, 'dev-2', 1);
+      final result = await UpdateDevice(repository: repo).call(
+        deviceId: 'dev-1',
+        serialNumber: '67808',
+      ).run();
+      result.isLeft().should.be(true);
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<AlreadyExistsFailure>();
+    });
+
+    test('Then it fails NotFound for an unknown machine', () async {
+      final result = await UpdateDevice(repository: repo).call(
+        deviceId: 'ghost',
+        name: 'X',
+      ).run();
+      result.isLeft().should.be(true);
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<NotFoundFailure>();
+    });
+  });
+
+  group('Given the delete device use case', () {
+    test('Then it removes a machine and its slots', () async {
+      seedDevice(repo, 'dev-1', 2);
+      final result = await DeleteDevice(repo)(deviceId: 'dev-1').run();
+      result.isRight().should.be(true);
+      (await GetDeviceById(repo)(id: 'dev-1').run()).isLeft().should.be(true);
+      (await ListSlotsForDevice(repo)(deviceId: 'dev-1').run())
+          .isLeft()
+          .should
+          .be(true);
+    });
+
+    test('Then it fails NotFound for an unknown machine', () async {
+      final result = await DeleteDevice(repo)(deviceId: 'ghost').run();
+      result.isLeft().should.be(true);
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<NotFoundFailure>();
+    });
+  });
+
   group('Given the list slots for a device use case', () {
     test('Then it returns slots in slot-number order', () async {
       seedDevice(repo, 'dev-1', 3);

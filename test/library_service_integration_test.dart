@@ -232,4 +232,121 @@ void main() {
           .beAssignableTo<AlreadyExistsFailure>();
     });
   });
+
+  group('LibraryService — machine CRUD facade', () {
+    test('addDevice + listDevices + get by id/serial round-trip', () async {
+      final repo = MemoryLibraryRepository();
+      final service = LibraryService(repository: repo);
+
+      final a = (await service
+          .addDevice(
+            manufacturer: 'Dacal',
+            sku: 'DC-300',
+            model: 'CD Library II',
+            serialNumber: '67808',
+            capacity: 150,
+            name: 'Main Rack',
+          )
+          .run())
+          .getOrElse((f) => fail('addDevice failed: $f'));
+      final b = (await service
+          .addDevice(
+            manufacturer: 'Dacal',
+            sku: 'DC-600',
+            model: 'CD Library III',
+            serialNumber: '9999',
+            capacity: 600,
+          )
+          .run())
+          .getOrElse((f) => fail('addDevice failed: $f'));
+
+      // Responses carry manufacturer, sku, model and serial number.
+      a.manufacturer.should.be('Dacal');
+      a.sku.should.be('DC-300');
+      a.model.should.be('CD Library II');
+      a.serialNumber.should.be('67808');
+      // Serial is exposed as the 'serializable' trait's serial_number attribute.
+      a.traits.map((t) => t.name).should.contain('serializable');
+      (a.traitAttributeValues['serial_number'] as String).should.be('67808');
+
+      final listed = (await service.listDevices().run())
+          .getOrElse((f) => fail('listDevices failed: $f'));
+      listed.map((d) => d.meta.id).toSet().should.be({a.meta.id, b.meta.id});
+
+      final byId = (await service.getDeviceById(b.meta.id).run())
+          .getOrElse((f) => fail('getDeviceById failed: $f'));
+      byId.serialNumber.should.be('9999');
+
+      final bySerial = (await service.getDeviceBySerialCode('67808').run())
+          .getOrElse((f) => fail('getDeviceBySerialCode failed: $f'));
+      bySerial.meta.id.should.be(a.meta.id);
+    });
+
+    test('updateDevice + deleteDevice round-trip through the facade', () async {
+      final repo = MemoryLibraryRepository();
+      final service = LibraryService(repository: repo);
+      final added = (await service
+          .addDevice(
+            manufacturer: 'Dacal',
+            sku: 'DC-300',
+            model: 'CD Library II',
+            serialNumber: '67808',
+            capacity: 150,
+          )
+          .run())
+          .getOrElse((f) => fail('addDevice failed: $f'));
+
+      final updated = (await service
+          .updateDevice(
+            deviceId: added.meta.id,
+            capacity: 300,
+            name: 'Big Rack',
+          )
+          .run())
+          .getOrElse((f) => fail('updateDevice failed: $f'));
+      updated.capacity.should.be(300);
+      updated.name.should.be('Big Rack');
+      updated.serialNumber.should.be('67808');
+
+      (await service.deleteDevice(added.meta.id).run())
+          .getOrElse((f) => fail('deleteDevice failed: $f'));
+
+      final result = await service.getDeviceById(added.meta.id).run();
+      result.isLeft().should.beTrue();
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<NotFoundFailure>();
+    });
+
+    test('a duplicate serial via the facade fails AlreadyExists', () async {
+      final repo = MemoryLibraryRepository();
+      final service = LibraryService(repository: repo);
+      (await service
+              .addDevice(
+                manufacturer: 'Dacal',
+                sku: 'DC-300',
+                model: 'CD Library II',
+                serialNumber: '67808',
+                capacity: 150,
+              )
+              .run())
+          .getOrElse((f) => fail('addDevice failed: $f'));
+
+      final result = await service
+          .addDevice(
+            manufacturer: 'Dacal',
+            sku: 'DC-600',
+            model: 'CD Library III',
+            serialNumber: '67808',
+            capacity: 600,
+          )
+          .run();
+      result.isLeft().should.beTrue();
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<AlreadyExistsFailure>();
+    });
+  });
 }

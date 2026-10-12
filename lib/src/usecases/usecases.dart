@@ -10,7 +10,10 @@
 library;
 
 export 'add_disc_to_library.dart';
+export 'add_device.dart';
 export 'change_disc_in_library.dart';
+export 'delete_device.dart';
+export 'get_device_by_id.dart';
 export 'get_device_by_serial_code.dart';
 export 'get_disc.dart';
 export 'get_slot_status.dart';
@@ -24,3 +27,4 @@ export 'new_meta.dart';
 export 'remove_disc.dart';
 export 'remove_disc_from_library.dart';
 export 'sequence.dart';
+export 'update_device.dart';

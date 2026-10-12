@@ -39,6 +39,65 @@ class LibraryService {
   TaskEither<DecalFailure, List<Device>> listDevices() =>
       ListDevices(repository).call();
 
+  /// Fetches one machine by its opaque id. [NotFoundFailure] when absent.
+  TaskEither<DecalFailure, Device> getDeviceById(String id) =>
+      GetDeviceById(repository).call(id: id);
+
+  /// Fetches one machine by its serial number. [NotFoundFailure] when absent.
+  TaskEither<DecalFailure, Device> getDeviceBySerialCode(String serialCode) =>
+      GetDeviceBySerialCode(repository).call(serialCode: serialCode);
+
+  /// Registers a new machine, minting its id.
+  ///
+  /// [InvalidInputFailure] on a blank serial / non-positive capacity;
+  /// [AlreadyExistsFailure] when another machine already has [serialNumber].
+  TaskEither<DecalFailure, Device> addDevice({
+    required String manufacturer,
+    required String sku,
+    required String model,
+    required String serialNumber,
+    required int capacity,
+    String? name,
+    SerialConfig? serialConfig,
+  }) => AddDevice(repository: repository).call(
+    manufacturer: manufacturer,
+    sku: sku,
+    model: model,
+    serialNumber: serialNumber,
+    capacity: capacity,
+    name: name,
+    serialConfig: serialConfig,
+  );
+
+  /// Updates a machine's identity fields by [deviceId].
+  ///
+  /// `null` fields are left unchanged; [NotFoundFailure] when the machine is
+  /// absent, [AlreadyExistsFailure] when the new serial collides with a
+  /// different machine.
+  TaskEither<DecalFailure, Device> updateDevice({
+    required String deviceId,
+    String? manufacturer,
+    String? sku,
+    String? model,
+    String? serialNumber,
+    int? capacity,
+    String? name,
+  }) => UpdateDevice(repository: repository).call(
+    deviceId: deviceId,
+    manufacturer: manufacturer,
+    sku: sku,
+    model: model,
+    serialNumber: serialNumber,
+    capacity: capacity,
+    name: name,
+  );
+
+  /// Deletes a machine and its slots by [deviceId].
+  ///
+  /// [NotFoundFailure] when the machine is absent.
+  TaskEither<DecalFailure, void> deleteDevice(String deviceId) =>
+      DeleteDevice(repository).call(deviceId: deviceId);
+
   /// Lists a device's slots, in slot-number order.
   TaskEither<DecalFailure, List<Slot>> listSlots(String deviceId) =>
       ListSlotsForDevice(repository).call(deviceId: deviceId);

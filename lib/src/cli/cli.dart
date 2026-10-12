@@ -87,6 +87,9 @@ class DecalCli {
     );
     runner.addCommand(ListDevicesCommand(deps));
     runner.addCommand(ShowDeviceCommand(deps));
+    runner.addCommand(DeviceAddCommand(deps));
+    runner.addCommand(DeviceRemoveCommand(deps));
+    runner.addCommand(DeviceUpdateCommand(deps));
     runner.addCommand(ListSlotsCommand(deps));
     runner.addCommand(InsertDiscCommand(deps));
     runner.addCommand(RemoveDiscCommand(deps));

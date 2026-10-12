@@ -24,6 +24,18 @@ Future<int> runTask<T>(
   required FutureOr<int> Function(T value) onOk,
 }) async => foldExit(await task.run(), deps, onOk: onOk);
 
+/// Resolves a machine reference — an opaque id or a serial number — to the
+/// matching [Device], trying the opaque-id lookup first and falling back to
+/// the serial-number lookup.
+Future<Either<DecalFailure, Device>> resolveDeviceByIdOrSerial(
+  DecalCliDeps deps,
+  String ref,
+) async {
+  final byId = await GetDeviceById(deps.library).call(id: ref).run();
+  if (byId.isRight()) return byId;
+  return GetDeviceBySerialCode(deps.library).call(serialCode: ref).run();
+}
+
 /// `decal devices` — list every known carousel device.
 class ListDevicesCommand extends Command<int> {
   /// Creates the command bound to [deps].
@@ -71,30 +83,188 @@ class ShowDeviceCommand extends Command<int> {
 
   @override
   String get description =>
-      'Show details for a carousel device, by serial code.';
+      'Show details for a carousel device, by id or serial code.';
+
+  @override
+  Future<int> run() async {
+    final rest = argResults!.rest;
+    if (rest.isEmpty) {
+      _deps.err('usage: decal device-info <id-or-serial>');
+      return 1;
+    }
+    final device = await resolveDeviceByIdOrSerial(_deps, rest.first);
+    return foldExit(
+      device,
+      _deps,
+      onOk: (d) {
+        _deps.out('Device ${d.serialNumber}');
+        _deps.out('  id:           ${d.meta.id}');
+        _deps.out('  manufacturer: ${d.manufacturer}');
+        _deps.out('  sku:          ${d.sku}');
+        _deps.out('  model:        ${d.model}');
+        _deps.out('  serial:       ${d.serialNumber}');
+        _deps.out('  capacity:     ${d.capacity}');
+        if (d.name != null) _deps.out('  name:         ${d.name}');
+        return 0;
+      },
+    );
+  }
+}
+
+/// `decal device-add <manufacturer> <sku> <model> <serial> <capacity> [name]`
+/// — register a new CD library machine.
+class DeviceAddCommand extends Command<int> {
+  /// Creates the command bound to [deps].
+  DeviceAddCommand(this._deps);
+
+  final DecalCliDeps _deps;
+
+  @override
+  String get name => 'device-add';
+
+  @override
+  String get description =>
+      'Register a new CD library machine (manufacturer, sku, model, '
+          'serial, capacity, optional name).';
 
   @override
   Future<int> run() {
     final rest = argResults!.rest;
-    if (rest.isEmpty) {
-      _deps.err('usage: decal device-info <serial-code>');
+    if (rest.length < 5) {
+      _deps.err(
+        'usage: decal device-add <manufacturer> <sku> <model> '
+        '<serial> <capacity> [name]',
+      );
       return Future.value(1);
     }
-    final serialCode = rest.first;
+    final capacity = parsePositiveInt(rest[4], _deps, 'capacity');
+    if (capacity == null) return Future.value(1);
+    final name = rest.length > 5 ? rest[5] : null;
+
     return runTask(
-      GetDeviceBySerialCode(_deps.library).call(serialCode: serialCode),
+      AddDevice(repository: _deps.library).call(
+        manufacturer: rest[0],
+        sku: rest[1],
+        model: rest[2],
+        serialNumber: rest[3],
+        capacity: capacity,
+        name: name,
+      ),
       _deps,
       onOk: (device) {
-        _deps.out('Device ${device.serialNumber}');
-        _deps.out('  id:           ${device.meta.id}');
-        _deps.out('  manufacturer: ${device.manufacturer}');
-        _deps.out('  sku:          ${device.sku}');
-        _deps.out('  model:        ${device.model}');
-        _deps.out('  serial:       ${device.serialNumber}');
-        _deps.out('  capacity:     ${device.capacity}');
-        if (device.name != null) _deps.out('  name:         ${device.name}');
+        _deps.out(
+          'Registered machine ${device.serialNumber} '
+          '(id ${device.meta.id}, model ${device.model}).',
+        );
         return 0;
       },
+    );
+  }
+}
+
+/// `decal device-remove <id-or-serial>` — delete a machine and its slots.
+class DeviceRemoveCommand extends Command<int> {
+  /// Creates the command bound to [deps].
+  DeviceRemoveCommand(this._deps);
+
+  final DecalCliDeps _deps;
+
+  @override
+  String get name => 'device-remove';
+
+  @override
+  String get description =>
+      'Delete a CD library machine (and its slots), by id or serial.';
+
+  @override
+  Future<int> run() async {
+    final rest = argResults!.rest;
+    if (rest.isEmpty) {
+      _deps.err('usage: decal device-remove <id-or-serial>');
+      return 1;
+    }
+    final device = await resolveDeviceByIdOrSerial(_deps, rest.first);
+    return device.fold(
+      (failure) {
+        _deps.err('error: ${failure.message}');
+        return 1;
+      },
+      (d) => runTask(
+        DeleteDevice(_deps.library).call(deviceId: d.meta.id),
+        _deps,
+        onOk: (_) {
+          _deps.out('Removed machine ${d.serialNumber} (id ${d.meta.id}).');
+          return 0;
+        },
+      ),
+    );
+  }
+}
+
+/// `decal device-update <id-or-serial> [options]` — update a machine.
+class DeviceUpdateCommand extends Command<int> {
+  /// Creates the command bound to [deps].
+  DeviceUpdateCommand(this._deps) {
+    argParser
+      ..addOption('manufacturer')
+      ..addOption('sku')
+      ..addOption('model')
+      ..addOption('serial', help: 'new serial number')
+      ..addOption('capacity', help: 'new slot capacity')
+      ..addOption('name', help: 'new display name');
+  }
+
+  final DecalCliDeps _deps;
+
+  @override
+  String get name => 'device-update';
+
+  @override
+  String get description =>
+      'Update a CD library machine by id or serial; only supplied options '
+          'change.';
+
+  @override
+  Future<int> run() async {
+    final rest = argResults!.rest;
+    if (rest.isEmpty) {
+      _deps.err(
+        'usage: decal device-update <id-or-serial> [--manufacturer=..] '
+        '[--sku=..] [--model=..] [--serial=..] [--capacity=..] [--name=..]',
+      );
+      return 1;
+    }
+    final args = argResults!;
+    final capacityRaw = args['capacity'] as String?;
+    final capacity = capacityRaw == null
+        ? null
+        : parsePositiveInt(capacityRaw, _deps, 'capacity');
+    if (capacityRaw != null && capacity == null) return 1;
+
+    final device = await resolveDeviceByIdOrSerial(_deps, rest.first);
+    return device.fold(
+      (failure) {
+        _deps.err('error: ${failure.message}');
+        return 1;
+      },
+      (d) => runTask(
+        UpdateDevice(repository: _deps.library).call(
+          deviceId: d.meta.id,
+          manufacturer: args['manufacturer'] as String?,
+          sku: args['sku'] as String?,
+          model: args['model'] as String?,
+          serialNumber: args['serial'] as String?,
+          capacity: capacity,
+          name: args['name'] as String?,
+        ),
+        _deps,
+        onOk: (updated) {
+          _deps.out(
+            'Updated machine ${updated.serialNumber} (id ${updated.meta.id}).',
+          );
+          return 0;
+        },
+      ),
     );
   }
 }

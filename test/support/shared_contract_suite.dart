@@ -465,5 +465,36 @@ void sharedRepositoryContractSuite({
           .should
           .beAssignableTo<NotFoundFailure>();
     });
+
+    test('Then deleteDevice removes a machine and its slots (cascade)', () async {
+      await seedDevice(repo, 'dev-a', 3);
+      await repo
+          .saveDevice(device: device('dev-b', serial: '9999'))
+          .run();
+
+      final result = await repo.deleteDevice(id: 'dev-a').run();
+      result.isRight().should.be(true);
+
+      // Device gone.
+      (await repo.fetchDeviceById(id: 'dev-a').run()).isLeft().should.be(true);
+      // Only dev-b remains.
+      final all = await repo.fetchDevices().run();
+      all
+          .getOrElse((_) => fail('expected Right'))
+          .map((d) => d.meta.id)
+          .should
+          .be(['dev-b']);
+      // Slots of the deleted machine are gone too.
+      (await repo.listSlots(deviceId: 'dev-a').run()).isLeft().should.be(true);
+    });
+
+    test('Then deleteDevice fails NotFound for an unknown machine', () async {
+      final result = await repo.deleteDevice(id: 'ghost').run();
+      result.isLeft().should.be(true);
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<NotFoundFailure>();
+    });
   });
 }

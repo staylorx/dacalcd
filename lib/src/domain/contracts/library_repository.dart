@@ -24,6 +24,13 @@ abstract interface class ILibraryRepository {
   /// Save (create or update) a device.
   TaskEither<DecalFailure, Device> saveDevice({required Device device});
 
+  /// Delete a device by its opaque [id], removing its slots too (cascade).
+  ///
+  /// Returns [NotFoundFailure] when no device has [id]. Deleting a device
+  /// also deletes every slot belonging to it, so a removed machine leaves no
+  /// orphaned slot records.
+  TaskEither<DecalFailure, void> deleteDevice({required String id});
+
   /// List every slot of the device identified by [deviceId].
   TaskEither<DecalFailure, List<Slot>> listSlots({required String deviceId});
 
