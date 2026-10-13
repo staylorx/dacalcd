@@ -1,7 +1,8 @@
 import 'package:equatable/equatable.dart';
+import 'package:sku_catalog/sku_catalog.dart' as cat;
 
+import '../catalog/dacal_catalog.dart';
 import 'meta.dart';
-import 'trait.dart';
 
 /// A CD/DVD held by the library — a catalog [Sku].
 ///
@@ -25,10 +26,10 @@ class Disc extends Equatable {
   /// Optional disc-specific serial number.
   final String? serialNumber;
 
-  /// Media-kind traits this disc carries: a CD disc is [kCdTrait], a DVD is
-  /// [kDvdTrait]. The media kind of a disc is expressed as a trait, mirroring
+  /// Media-kind traits this disc carries: a CD disc is [kDcCdTrait], a DVD is
+  /// [kDcDvdTrait]. The media kind of a disc is expressed as a trait, mirroring
   /// how a machine carries `serializable`/`hid`.
-  final Set<Trait> traits;
+  final Set<cat.Trait> traits;
 
   /// Creates a [Disc].
   const Disc({
@@ -69,9 +70,13 @@ class Disc extends Equatable {
   List<Object?> get props => [meta, skuId, label, serialNumber, traits];
 }
 
-/// Resolves a persisted trait name to its canonical [Trait], falling back to a
-/// generic [Trait] when the name is not one of the known classifications.
-Trait _resolveTrait(String name) =>
+/// Resolves a persisted trait name to its canonical [cat.Trait], falling back
+/// to a generic [cat.Trait] when the name is not one of the known
+/// classifications.
+cat.Trait _resolveTrait(String name) =>
     kCanonicalTraits[name] ??
-    Trait(meta: Meta(id: 'trait:$name', notes: '', createdAt: '', updatedAt: ''), name: name);
+    cat.Trait(
+      meta: cat.Meta(id: 'trait:$name', notes: '', createdAt: '', updatedAt: ''),
+      name: name,
+    );
 

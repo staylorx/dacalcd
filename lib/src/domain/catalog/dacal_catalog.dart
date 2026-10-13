@@ -18,6 +18,11 @@ import 'package:sku_catalog/sku_catalog.dart' as cat;
 /// catalog (`'Dacal'`).
 const String kDcManufacturerId = 'dc:manufacturer:dacal';
 
+/// Canonical trait-attribute key under which a serial number is stored on a
+/// serializable entity. Kept here (a plain string) so `Device.traitAttributeValues`
+/// and the storage/UI layers agree on the key without a mirror entity.
+const String kSerialNumberTraitAttributeKey = 'serial_number';
+
 /// The `hid` trait: a SKU that talks USB/HID. Applies to CD library machines
 /// (see [dacalMachineSku]).
 const cat.Trait kDcHidTrait = cat.Trait(
@@ -39,6 +44,22 @@ const cat.Trait kDcSerializableTrait = cat.Trait(
   scope: [cat.TraitScope.sku],
 );
 
+/// The canonical `serial_number` trait attribute, hanging off
+/// [kDcSerializableTrait] — the real sku_catalog definition.
+const cat.TraitAttributeDefinition kDcSerialNumberTraitAttribute =
+    cat.TraitAttributeDefinition(
+      meta: cat.Meta(
+        id: 'dc:trait_attribute:serial_number',
+        notes: '',
+        createdAt: '',
+        updatedAt: '',
+      ),
+      traitId: 'dc:trait:serializable',
+      key: kSerialNumberTraitAttributeKey,
+      displayLabel: 'Serial Number',
+      dataType: cat.DataType.string,
+    );
+
 /// The `cd` trait: a disc SKU whose media kind is a compact disc.
 const cat.Trait kDcCdTrait = cat.Trait(
   meta: cat.Meta(id: 'dc:trait:cd', notes: '', createdAt: '', updatedAt: ''),
@@ -52,6 +73,15 @@ const cat.Trait kDcDvdTrait = cat.Trait(
   name: 'dvd',
   scope: [cat.TraitScope.sku],
 );
+
+/// Registry of every canonical trait by name, used to resolve a persisted
+/// trait name back to its canonical [cat.Trait] on load (see `Disc.fromJson`).
+const Map<String, cat.Trait> kCanonicalTraits = {
+  'serializable': kDcSerializableTrait,
+  'hid': kDcHidTrait,
+  'cd': kDcCdTrait,
+  'dvd': kDcDvdTrait,
+};
 
 /// A CD library machine (e.g. a Dacal `DC-300`) as a catalog SKU — the *model*
 /// class. It carries the `hid` + `serializable` traits as its classification

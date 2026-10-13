@@ -1,10 +1,10 @@
 import 'package:equatable/equatable.dart';
+import 'package:sku_catalog/sku_catalog.dart' as cat;
 
+import '../catalog/dacal_catalog.dart';
 import 'hid_config.dart';
 import 'meta.dart';
 import 'serial_config.dart';
-import 'trait.dart';
-import 'trait_attribute_definition.dart';
 
 /// A physical CD library machine (the carousel that holds the discs).
 ///
@@ -19,13 +19,13 @@ import 'trait_attribute_definition.dart';
 /// carries its own per-unit serial-port/comm connection in [serialConfig],
 /// so connection details are per machine rather than a single app-wide port.
 ///
-/// Every machine is [kSerializableTrait]: its serial number is captured
+/// Every machine is [kDcSerializableTrait]: its serial number is captured
 /// generically as the [kSerialNumberTraitAttributeKey] trait-attribute value
 /// on the `serializable` trait (see [traitAttributeValues]).
 class Device extends Equatable {
   /// The trait attributes that capture a CD library machine's identity.
-  static const List<TraitAttributeDefinition> traitAttributeDefinitions = [
-    kSerialNumberTraitAttribute,
+  static const List<cat.TraitAttributeDefinition> traitAttributeDefinitions = [
+    kDcSerialNumberTraitAttribute,
   ];
 
   /// Creation metadata.
@@ -59,7 +59,7 @@ class Device extends Equatable {
   /// captures (see `docs/usb-capture-session-*.md`). Like [serialConfig], it
   /// is a first-class domain entity held as a property of the machine
   /// instance, not a trait-attribute value. The machine's SKU still carries
-  /// the `hid` trait (see `kHidTrait`) as its classification.
+  /// the `hid` trait (see [kDcHidTrait]) as its classification.
   final HidConfig? hidConfig;
 
   /// Per-machine demo mode flag.
@@ -135,8 +135,8 @@ class Device extends Equatable {
   );
 
   /// The traits this machine carries. A CD library machine is
-  /// [kSerializableTrait]: its serial number is exposed generically.
-  Set<Trait> get traits => {kSerializableTrait};
+  /// [kDcSerializableTrait]: its serial number is exposed generically.
+  Set<cat.Trait> get traits => {kDcSerializableTrait};
 
   /// Trait-attribute values keyed by attribute key. The serial number is the
   /// `serial_number` value on the `serializable` trait.

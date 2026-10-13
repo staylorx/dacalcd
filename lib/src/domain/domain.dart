@@ -20,6 +20,8 @@ export 'entities/hid_config.dart';
 export 'entities/meta.dart';
 export 'entities/serial_config.dart';
 export 'entities/slot.dart';
-export 'entities/trait.dart';
-export 'entities/trait_attribute_definition.dart';
 export 'failures/decal_failures.dart';
+// The trait system is owned by sku_catalog — re-export its types so the front
+// door (package:decalcd/decalcd.dart) still exposes Trait/TraitScope/etc.
+export 'package:sku_catalog/sku_catalog.dart'
+    show Trait, TraitScope, TraitAttributeDefinition, DataType;

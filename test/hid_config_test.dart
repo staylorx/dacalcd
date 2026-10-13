@@ -73,15 +73,15 @@ void main() {
       expect(base.copyWithHidConfig(null).hidConfig, isNull);
       // Traits untouched: the instance's classification does not gain traits
       // from carrying a connection config.
-      expect(base.traits, {kSerializableTrait});
+      expect(base.traits, {kDcSerializableTrait});
     });
   });
 
   group('hid trait', () {
     test('a CD library SKU carries the hid trait (connection on the instance)',
         () {
-      expect(kHidTrait.name, 'hid');
-      expect(kHidTraitId, 'trait:hid');
+      expect(kDcHidTrait.name, 'hid');
+      expect(kDcHidTrait.meta.id, 'dc:trait:hid');
       // The SKU is classified `hid`; the concrete connection detail is a
       // HidConfig field on the Device instance (like serialConfig).
       const info = HidConfig.dacal;

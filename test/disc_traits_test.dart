@@ -14,13 +14,13 @@ void main() {
 
   group('cd/dvd traits', () {
     test('are canonical classifications', () {
-      expect(kCdTrait.name, 'cd');
-      expect(kCdTraitId, 'trait:cd');
-      expect(kDvdTrait.name, 'dvd');
-      expect(kDvdTraitId, 'trait:dvd');
+      expect(kDcCdTrait.name, 'cd');
+      expect(kDcCdTrait.meta.id, 'dc:trait:cd');
+      expect(kDcDvdTrait.name, 'dvd');
+      expect(kDcDvdTrait.meta.id, 'dc:trait:dvd');
       // Registered in the canonical registry for JSON round-trip resolution.
-      expect(kCanonicalTraits['cd'], kCdTrait);
-      expect(kCanonicalTraits['dvd'], kDvdTrait);
+      expect(kCanonicalTraits['cd'], kDcCdTrait);
+      expect(kCanonicalTraits['dvd'], kDcDvdTrait);
     });
   });
 
@@ -28,25 +28,25 @@ void main() {
     Disc cd() => Disc(
       meta: metaFor('disc-cd'),
       skuId: 'sku:cd',
-      traits: {kCdTrait},
+      traits: {kDcCdTrait},
     );
     Disc dvd() => Disc(
       meta: metaFor('disc-dvd'),
       skuId: 'sku:dvd',
-      traits: {kDvdTrait},
+      traits: {kDcDvdTrait},
     );
 
     test('a CD disc carries the cd trait and round-trips JSON', () {
-      expect(cd().traits, {kCdTrait});
+      expect(cd().traits, {kDcCdTrait});
       final back = Disc.fromJson(cd().toJson());
-      expect(back.traits, {kCdTrait});
+      expect(back.traits, {kDcCdTrait});
       expect(back, cd());
     });
 
     test('a DVD disc carries the dvd trait and round-trips JSON', () {
-      expect(dvd().traits, {kDvdTrait});
+      expect(dvd().traits, {kDcDvdTrait});
       final back = Disc.fromJson(dvd().toJson());
-      expect(back.traits, {kDvdTrait});
+      expect(back.traits, {kDcDvdTrait});
       expect(back, dvd());
     });
 

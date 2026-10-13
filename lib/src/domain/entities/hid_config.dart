@@ -17,7 +17,7 @@ const List<String> kDacalStatusTokens = ['ACK', 'BUSY', 'SOS', 'ERROR'];
 /// engineered from live USB captures (see `docs/usb-capture-session-*.md`):
 /// how the vendor software reaches the machine, so a future HID transport can
 /// open this exact unit without another sniffing session. A CD library
-/// machine is a SKU that carries the `hid` trait (see `kHidTrait`) as its
+/// machine is a SKU that carries the `hid` trait (see `kDcHidTrait`) as its
 /// classification; this config is a first-class domain entity held as a
 /// property of the machine instance ([Device.hidConfig]), mirroring
 /// [serialConfig] — not stuffed into trait-attribute values.
