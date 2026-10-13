@@ -77,3 +77,39 @@ const Trait kHidTrait = Trait(
   meta: Meta(id: kHidTraitId, notes: '', createdAt: '', updatedAt: ''),
   name: kHidTraitName,
 );
+
+/// Canonical name of the trait a disc SKU carries when it is a **CD** (compact
+/// disc, read-only). The media kind of a disc is expressed as a trait, exactly
+/// as a machine carries `serializable`/`hid`.
+const String kCdTraitName = 'cd';
+
+/// Canonical id of the "cd" trait.
+const String kCdTraitId = 'trait:cd';
+
+/// The canonical "cd" trait: a disc whose media kind is a CD.
+const Trait kCdTrait = Trait(
+  meta: Meta(id: kCdTraitId, notes: '', createdAt: '', updatedAt: ''),
+  name: kCdTraitName,
+);
+
+/// Canonical name of the trait a disc SKU carries when it is a **DVD** (digital
+/// versatile disc). Like [kCdTrait], the media kind is a trait on the disc.
+const String kDvdTraitName = 'dvd';
+
+/// Canonical id of the "dvd" trait.
+const String kDvdTraitId = 'trait:dvd';
+
+/// The canonical "dvd" trait: a disc whose media kind is a DVD.
+const Trait kDvdTrait = Trait(
+  meta: Meta(id: kDvdTraitId, notes: '', createdAt: '', updatedAt: ''),
+  name: kDvdTraitName,
+);
+
+/// Registry of every canonical trait by name, used to resolve a persisted
+/// trait name back to its canonical [Trait] on load (see `Disc.fromJson`).
+const Map<String, Trait> kCanonicalTraits = {
+  kSerializableTraitName: kSerializableTrait,
+  kHidTraitName: kHidTrait,
+  kCdTraitName: kCdTrait,
+  kDvdTraitName: kDvdTrait,
+};
