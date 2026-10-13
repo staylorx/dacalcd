@@ -2,6 +2,8 @@ import 'package:decalcd/decalcd.dart';
 import 'package:shouldly/shouldly.dart';
 import 'package:test/test.dart';
 
+import 'support/device_factory.dart';
+
 void main() {
   Meta meta(String id) => Meta(
     id: id,
@@ -12,12 +14,9 @@ void main() {
 
   group('Given a Device', () {
     test('Then it round-trips machine fields and JSON', () {
-      final device = Device(
-        meta: meta('dev-1'),
-        manufacturer: 'Dacal',
-        sku: 'DC-300',
-        model: 'CD Library II',
-        serialNumber: '67808',
+      final device = buildDevice(
+        'dev-1',
+        serial: '67808',
         capacity: 150,
         name: 'Carousel',
         serialConfig: const SerialConfig(portName: 'COM3', baudRate: 9600),
@@ -38,12 +37,9 @@ void main() {
 
     test('Then it carries the serializable trait with the serial_number attribute',
         () {
-      final device = Device(
-        meta: meta('dev-1'),
-        manufacturer: 'Dacal',
-        sku: 'DC-300',
-        model: 'CD Library II',
-        serialNumber: '67808',
+      final device = buildDevice(
+        'dev-1',
+        serial: '67808',
         capacity: 150,
       );
 
@@ -62,20 +58,20 @@ void main() {
 
     test('Then multiple machines coexist with distinct serials and models',
         () {
-      final a = Device(
-        meta: meta('m1'),
+      final a = buildDevice(
+        'm1',
         manufacturer: 'Dacal',
         sku: 'DC-300',
         model: 'CD Library II',
-        serialNumber: '67808',
+        serial: '67808',
         capacity: 150,
       );
-      final b = Device(
-        meta: meta('m2'),
+      final b = buildDevice(
+        'm2',
         manufacturer: 'Primera',
         sku: 'PF-600',
         model: 'CD Library III',
-        serialNumber: '9999',
+        serial: '9999',
         capacity: 300,
       );
 

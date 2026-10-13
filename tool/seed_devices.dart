@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:decalcd/decalcd.dart';
 import 'package:decalcd/src/data/data.dart';
+import '../test/support/device_factory.dart';
 import 'package:sembast/sembast_io.dart';
 
 Future<void> main(List<String> args) async {
@@ -14,12 +15,12 @@ Future<void> main(List<String> args) async {
   final scope = SembastTransactionScope();
   final repo = SembastLibraryRepository(database: db, scope: scope);
   final now = DateTime.now().toUtc().toIso8601String();
-  final device = Device(
-    meta: Meta(id: 'dev-67808', notes: '', createdAt: now, updatedAt: now),
+  final device = buildDevice(
+    'dev-67808',
     manufacturer: 'Dacal',
     sku: 'DC-300',
     model: 'CD Library II',
-    serialNumber: '67808',
+    serial: '67808',
     capacity: 150,
     name: 'Main Rack',
   );

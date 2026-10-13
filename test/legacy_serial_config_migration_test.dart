@@ -12,12 +12,7 @@ void main() {
     repo = MemoryLibraryRepository();
   });
 
-  Meta meta(String id) => Meta(
-    id: id,
-    notes: '',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-  );
+
 
   Device machine(String id, {String? serial, SerialConfig? config}) =>
       buildDevice(

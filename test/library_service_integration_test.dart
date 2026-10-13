@@ -7,7 +7,7 @@
 // the same seeded repository, and asserts the records both surface are
 // produced by the same shared LibraryService — so neither entry point reads
 // the repository on its own forged path.
-import 'package:decalcd/decalcd.dart';
+import 'package:decalcd/src/cli/cli.dart';
 import 'package:decalcd/decalcd.dart';
 import 'package:shouldly/shouldly.dart';
 import 'package:test/test.dart';

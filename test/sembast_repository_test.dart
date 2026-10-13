@@ -5,6 +5,7 @@ import 'package:shouldly/shouldly.dart';
 import 'package:sembast/sembast_memory.dart';
 import 'package:test/test.dart';
 
+import 'support/device_factory.dart';
 import 'support/shared_contract_suite.dart';
 
 var _dbSeq = 0;
@@ -51,12 +52,9 @@ void main() {
     }) async {
       await repo
           .saveDevice(
-            device: Device(
-              meta: meta(deviceId),
-              manufacturer: 'Dacal',
-              sku: 'DC-300',
-              model: 'CD Library II',
-              serialNumber: deviceId == 'dev-a' ? '67808' : '4444',
+            device: buildDevice(
+              deviceId,
+              serial: deviceId == 'dev-a' ? '67808' : '4444',
               capacity: capacity,
             ),
           )
