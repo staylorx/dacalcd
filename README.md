@@ -10,10 +10,24 @@ Flutter app build on.
 
 ## Protocol summary
 
-The Dacal carousel enumerates on Windows as a virtual COM port (its USB link is
-a Cypress 0x04b4 / 0x5a9b device). Commands are single opcode bytes; responses
-are framed as a two-byte little-endian length followed by a UTF-16LE status
-token (`ACK`, `BUSY`, `SOS`, `ERROR`).
+The Dacal carousel is a Cypress 0x04b4 / 0x5a9b USB device that exposes the
+same command set over either of two transports, confirmed by live USB capture
+(USBPcap):
+
+- **Serial (CDC virtual COM)** — a byte stream of single opcode bytes; responses
+  are framed as a two-byte little-endian length followed by a UTF-16LE status
+  token (`ACK`, `BUSY`, `SOS`, `ERROR`).
+- **HID string-descriptor (this unit)** — Cypress CY7C64225 HID-UART bridge
+  with a single interrupt-IN endpoint `0x81` and no OUT endpoint. Commands ride
+  as **GET_DESCRIPTOR STRING** control transfers on EP0 where the **string index
+  is the opcode byte**; the response is a string descriptor `LL 03 <token
+  UTF-16LE>` (`03` = STRING descriptor type, LL = byte count) — the same status
+  tokens, differing from the serial frame only in byte [1] (0x03 vs 0x00).
+
+The opcode table below is validated against live captures of both. Command
+bytes are single opcodes; the two-byte move-to-slot operation is the opcode
+`MOVE_TO` followed by the slot number byte (e.g. slot 5 -> `0x05`), exactly as
+`DacalCodec.encode` / `encodeSlot` emit.
 
 | Command        | Opcode | Notes                                   |
 |----------------|--------|-----------------------------------------|

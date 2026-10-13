@@ -78,3 +78,32 @@ layer can drive it without another capture session.
   interpret — it pollutes the log.
 - The log uses raw hex; decode status tokens with the codec or the table above.
 - `DacalLoggingTransport` must be `close()`d to flush the final buffered lines.
+
+## Capturing at the USB level (USBPcap)
+
+The serial log captures what the app and device exchange *after* the USB
+transport, which is enough once the transport is known. To learn the transport
+itself — and to see this unit's real, non-COM wiring — capture the raw USB bus:
+
+- USBPcap is installed at `C:\Program Files\USBPcap\USBPcapCMD.exe`; tshark at
+  `C:\Program Files\Wireshark\tshark.exe`. Capture needs admin (RunAs).
+- **This unit (Cypress 04B4:5A9B) is HID-class, not CDC/virtual-COM.** It has a
+  single interrupt-IN endpoint `0x81` (3-byte reports) and NO interrupt-OUT
+  endpoint. Commands travel as **GET_DESCRIPTOR STRING** control transfers on
+  EP0 where the **string index == the opcode byte**; the response is a string
+  descriptor payload = 2-byte length + UTF-16LE status token (`ACK`/`BUSY`/
+  `ERROR`). So the response framing is identical to the serial capture — only
+  the transport differs.
+- Referenced tooling lives in `tool/`:
+  - `tool/usbpcap_capture_dacal.ps1` — elevated capture of the Dacal (default
+    `\\.\USBPcap2`, `--devices 10`, `--inject-descriptors`); pass
+    `-Seconds N -OutFile path.pcap`. Device **address can change on replug** —
+    re-map it first (see below).
+  - `tool/decode_dacal_capture.sh` — decodes device-10 frames into TX/RX hex.
+  - To find the current address after a replug: capture the bus with
+    `--inject-descriptors` and tshark it:
+    `tshark -r f.pcap -Y "usb.device_address == X" -V | grep -i -A2 idVendor`.
+- Packet layout (USBPcap header = 28 bytes, then USB): the GET_DESCRIPTOR
+  setup is at offset 0x1c (`80 06 <idx> 03 09 04 …`); the string index (opcode)
+  is the byte at 0x1e. Responses carry the status at 0x1e.. as UTF-16LE.
+- See `docs/usb-capture-session-2026-10-12.md` for a worked decode.
