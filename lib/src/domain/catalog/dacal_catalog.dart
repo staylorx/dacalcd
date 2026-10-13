@@ -23,6 +23,12 @@ const String kDcManufacturerId = 'dc:manufacturer:dacal';
 /// and the storage/UI layers agree on the key without a mirror entity.
 const String kSerialNumberTraitAttributeKey = 'serial_number';
 
+/// Canonical trait-attribute key under which a disc's occupied slot number is
+/// stored on a slottable entity. A slot is an attribute **value** (placement is
+/// an instance fact, not connection wiring), so it hangs off the `slottable`
+/// trait on the disc [Instance] rather than being a sidecar.
+const String kSlotNumberTraitAttributeKey = 'slot_number';
+
 /// The `hid` trait: a SKU that talks USB/HID. Applies to CD library machines
 /// (see [dacalMachineSku]).
 const cat.Trait kDcHidTrait = cat.Trait(
@@ -74,6 +80,38 @@ const cat.Trait kDcDvdTrait = cat.Trait(
   scope: [cat.TraitScope.sku],
 );
 
+/// The `slottable` trait: a SKU whose physical instances can occupy a slot in a
+/// CD library machine. Applies to disc media SKUs — a disc (the SKU) is
+/// *classifiable* as slottable, while the concrete slot number is an attribute
+/// **value** on each disc [Instance] (see [discInstance]).
+const cat.Trait kDcSlottableTrait = cat.Trait(
+  meta: cat.Meta(
+    id: 'dc:trait:slottable',
+    notes: '',
+    createdAt: '',
+    updatedAt: '',
+  ),
+  name: 'slottable',
+  scope: [cat.TraitScope.sku],
+);
+
+/// The canonical `slot_number` trait attribute, hanging off
+/// [kDcSlottableTrait]. An int whose value — placed on a disc [Instance] —
+/// is the slot (1..capacity) that physical disc occupies.
+const cat.TraitAttributeDefinition kDcSlotNumberTraitAttribute =
+    cat.TraitAttributeDefinition(
+      meta: cat.Meta(
+        id: 'dc:trait_attribute:slot_number',
+        notes: '',
+        createdAt: '',
+        updatedAt: '',
+      ),
+      traitId: 'dc:trait:slottable',
+      key: kSlotNumberTraitAttributeKey,
+      displayLabel: 'Slot Number',
+      dataType: cat.DataType.number,
+    );
+
 /// Registry of every canonical trait by name, used to resolve a persisted
 /// trait name back to its canonical [cat.Trait] on load (see `Disc.fromJson`).
 const Map<String, cat.Trait> kCanonicalTraits = {
@@ -81,6 +119,7 @@ const Map<String, cat.Trait> kCanonicalTraits = {
   'hid': kDcHidTrait,
   'cd': kDcCdTrait,
   'dvd': kDcDvdTrait,
+  'slottable': kDcSlottableTrait,
 };
 
 /// A CD library machine (e.g. a Dacal `DC-300`) as a catalog SKU — the *model*
@@ -112,7 +151,8 @@ cat.Sku dacalMachineSku({
     );
 
 /// A disc held by the library as a catalog SKU — a CD or DVD media SKU
-/// carrying the `cd` or `dvd` trait (see [kDcCdTrait]/[kDcDvdTrait]).
+/// carrying the `cd` or `dvd` media trait and the `slottable` trait (its
+/// physical copies can occupy a slot; see [discInstance]).
 cat.Sku discSku({
   required cat.Meta meta,
   required cat.Trait mediaTrait,
@@ -122,7 +162,31 @@ cat.Sku discSku({
       meta: meta,
       manufacturerId: '',
       modelNumber: modelNumber,
-      traitIds: [mediaTrait.meta.id],
+      traitIds: [mediaTrait.meta.id, kDcSlottableTrait.meta.id],
+    );
+
+/// A physical disc in the library — an [Instance] of a disc [Sku] (see
+/// [discSku]).
+///
+/// The SKU is the media class (a CD "Album X" — kind + slottable); this is the
+/// individual article. Its placement is an attribute value: when the disc is in
+/// a slot, its `slot_number` value (the `slottable` trait attribute) holds
+/// `1..capacity`. A disc with no `slot_number` is currently not loaded in a
+/// slot.
+cat.Instance discInstance({
+  required cat.Meta meta,
+  required String skuId,
+  required String name,
+  int? slotNumber,
+}) =>
+    cat.Instance(
+      meta: meta,
+      skuId: skuId,
+      locateId: null,
+      name: name,
+      attributeValues: {
+        kSlotNumberTraitAttributeKey: ?slotNumber,
+      },
     );
 
 /// The physical machine at this site — an [Instance] of [dacalMachineSku].

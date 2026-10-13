@@ -44,8 +44,8 @@ void main() {
     test('a CD disc carries the cd trait; a DVD disc carries the dvd trait', () {
       final cd = discSku(meta: meta('sku:media-cd'), mediaTrait: kDcCdTrait, modelNumber: 'cd');
       final dvd = discSku(meta: meta('sku:media-dvd'), mediaTrait: kDcDvdTrait, modelNumber: 'dvd');
-      expect(cd.traitIds, [kDcCdTrait.meta.id]);
-      expect(dvd.traitIds, [kDcDvdTrait.meta.id]);
+      expect(cd.traitIds, containsAll([kDcCdTrait.meta.id, kDcSlottableTrait.meta.id]));
+      expect(dvd.traitIds, containsAll([kDcDvdTrait.meta.id, kDcSlottableTrait.meta.id]));
       expect(cd.roundTrips(), isTrue);
       expect(dvd.roundTrips(), isTrue);
     });
