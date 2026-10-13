@@ -53,6 +53,15 @@ class Device extends Equatable {
   /// baud). One per CD library machine — never a single app-wide port.
   final SerialConfig? serialConfig;
 
+  /// Per-machine demo mode flag.
+  ///
+  /// When auto-detection of a physical machine fails, the machine falls back
+  /// to demo mode so the UI still works against simulated hardware. It is a
+  /// per-machine, user-visible state (shown as a banner on the machine's page)
+  /// and can be toggled off again. A machine in demo mode typically has no
+  /// [serialConfig] (no real COM port), but the two are independent flags.
+  final bool demoMode;
+
   /// Creates a [Device].
   const Device({
     required this.meta,
@@ -63,6 +72,7 @@ class Device extends Equatable {
     required this.capacity,
     this.name,
     this.serialConfig,
+    this.demoMode = false,
   });
 
   /// Returns a copy of this machine with a new per-machine [serialConfig].
@@ -78,6 +88,20 @@ class Device extends Equatable {
     capacity: capacity,
     name: name,
     serialConfig: serialConfig,
+    demoMode: demoMode,
+  );
+
+  /// Returns a copy of this machine with the per-machine [demoMode] flag set.
+  Device copyWithDemoMode(bool demoMode) => Device(
+    meta: meta,
+    manufacturer: manufacturer,
+    sku: sku,
+    model: model,
+    serialNumber: serialNumber,
+    capacity: capacity,
+    name: name,
+    serialConfig: serialConfig,
+    demoMode: demoMode,
   );
 
   /// The traits this machine carries. A CD library machine is
@@ -102,6 +126,7 @@ class Device extends Equatable {
     'name': name,
     'traits': [for (final t in traits) t.name],
     'trait_attribute_values': traitAttributeValues,
+    'demo_mode': demoMode,
     if (serialConfig != null) 'serial_config': serialConfig!.toJson(),
   };
 
@@ -114,6 +139,7 @@ class Device extends Equatable {
     serialNumber: json['serial_number'] as String? ?? '',
     capacity: _intFromWire(value: json['capacity']),
     name: json['name'] as String?,
+    demoMode: json['demo_mode'] == true,
     serialConfig: json['serial_config'] is Map<String, dynamic>
         ? SerialConfig.fromJson(json['serial_config'] as Map<String, dynamic>)
         : null,
@@ -129,6 +155,7 @@ class Device extends Equatable {
     capacity,
     name,
     serialConfig,
+    demoMode,
   ];
 }
 

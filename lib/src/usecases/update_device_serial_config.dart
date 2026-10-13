@@ -46,6 +46,7 @@ class UpdateDeviceSerialConfig {
       serialNumber: current.serialNumber,
       capacity: current.capacity,
       name: current.name,
+      demoMode: current.demoMode,
       serialConfig: serialConfig,
     );
     return _repository.saveDevice(device: updated);

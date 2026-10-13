@@ -21,6 +21,7 @@ void main() {
         capacity: 150,
         name: 'Carousel',
         serialConfig: const SerialConfig(portName: 'COM3', baudRate: 9600),
+        demoMode: true,
       );
 
       final back = Device.fromJson(device.toJson());
@@ -32,6 +33,7 @@ void main() {
       back.name.should.be('Carousel');
       back.serialConfig?.portName.should.be('COM3');
       back.serialConfig?.baudRate.should.be(9600);
+      back.demoMode.should.be(true);
     });
 
     test('Then it carries the serializable trait with the serial_number attribute',

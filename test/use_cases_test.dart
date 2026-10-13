@@ -390,6 +390,63 @@ void main() {
     });
   });
 
+  group('Given the update device demo mode use case', () {
+    test('Then it enters and exits demo mode for that machine', () async {
+      seedDevice(repo, 'dev-1', 1);
+      final changedAt = DateTime.utc(2026, 3, 2, 9, 0, 0);
+
+      final enter = await UpdateDeviceDemoMode(
+        repository: repo,
+        clock: () => changedAt,
+      ).call(deviceId: 'dev-1', demoMode: true).run();
+      enter.isRight().should.be(true);
+      final demo = enter.getOrElse((_) => fail('expected Right'));
+      demo.demoMode.should.be(true);
+      demo.meta.updatedAt.should.be('2026-03-02T09:00:00.000Z');
+      // Identity fields are untouched.
+      demo.serialNumber.should.be('67808');
+      demo.capacity.should.be(150);
+
+      final fetched = await GetDeviceById(repo)(id: 'dev-1').run();
+      fetched.getOrElse((_) => fail('expected Right')).demoMode.should.be(true);
+
+      final exit = await UpdateDeviceDemoMode(
+        repository: repo,
+      ).call(deviceId: 'dev-1', demoMode: false).run();
+      final live = exit.getOrElse((_) => fail('expected Right'));
+      live.demoMode.should.be(false);
+      final refetched = await GetDeviceById(repo)(id: 'dev-1').run();
+      refetched.getOrElse((_) => fail('expected Right')).demoMode.should.be(
+        false,
+      );
+    });
+
+    test('Then it preserves the machine serial config', () async {
+      final seeded = device('dev-1').copyWithSerialConfig(
+        const SerialConfig(portName: 'COM9', baudRate: 19200),
+      );
+      await repo.saveDevice(device: seeded).run();
+
+      final result = await UpdateDeviceDemoMode(repository: repo)
+          .call(deviceId: 'dev-1', demoMode: true)
+          .run();
+      final changed = result.getOrElse((_) => fail('expected Right'));
+      changed.demoMode.should.be(true);
+      changed.serialConfig?.portName.should.be('COM9');
+    });
+
+    test('Then it fails NotFound for an unknown machine', () async {
+      final result = await UpdateDeviceDemoMode(repository: repo)
+          .call(deviceId: 'ghost', demoMode: true)
+          .run();
+      result.isLeft().should.be(true);
+      result
+          .fold((f) => f, (_) => fail('expected Left'))
+          .should
+          .beAssignableTo<NotFoundFailure>();
+    });
+  });
+
   group('Given the delete device use case', () {
     test('Then it removes a machine and its slots', () async {
       seedDevice(repo, 'dev-1', 2);
