@@ -104,7 +104,7 @@ class ShowDeviceCommand extends Command<int> {
         _deps.out('  model:        ${d.model}');
         _deps.out('  serial:       ${d.serialNumber}');
         _deps.out('  capacity:     ${d.capacity}');
-        if (d.name != null) _deps.out('  name:         ${d.name}');
+        if (d.name.isNotEmpty) _deps.out('  name:         ${d.name}');
         return 0;
       },
     );

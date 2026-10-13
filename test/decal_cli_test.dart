@@ -4,6 +4,7 @@ import 'package:shouldly/shouldly.dart';
 import 'package:test/test.dart';
 
 import 'fake_dacal_transport.dart';
+import 'support/device_factory.dart';
 import 'support/memory_library_repository.dart';
 
 /// A capturing line writer for asserting CLI output without touching stdout.
@@ -39,14 +40,7 @@ Meta _meta(String id) => Meta(
   updatedAt: '2026-01-01T00:00:00.000Z',
 );
 
-Device _device(String id) => Device(
-  meta: _meta(id),
-  manufacturer: 'Dacal',
-  sku: 'DC-300',
-  model: 'CD Library II',
-  serialNumber: '67808',
-  capacity: 3,
-);
+Device _device(String id) => buildDevice(id, capacity: 3);
 
 /// Seeds a device plus empty slots 1..n.
 Future<MemoryLibraryRepository> _seed() async {

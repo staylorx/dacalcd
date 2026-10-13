@@ -1,4 +1,5 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:sku_catalog/sku_catalog.dart' as cat;
 
 import '../domain/domain.dart';
 
@@ -8,8 +9,7 @@ import '../domain/domain.dart';
 /// machine talks on its own COM port), so they are stored on the machine —
 /// [Device.serialConfig] — not in a shared app-wide config. This use case
 /// updates just that field on the machine identified by [deviceId], leaving
-/// its identity fields (manufacturer / sku / model / serial / capacity /
-/// name) untouched.
+/// its identity (machine SKU + instance) untouched.
 ///
 /// Pass a [SerialConfig] to set the machine's connection, or `null` to clear
 /// it. [NotFoundFailure] when no machine has [deviceId]. The machine's
@@ -33,20 +33,13 @@ class UpdateDeviceSerialConfig {
     required String deviceId,
     required SerialConfig? serialConfig,
   }) => _repository.fetchDeviceById(id: deviceId).flatMap((current) {
-    final updated = Device(
-      meta: Meta(
+    final updated = current.rebuild(
+      meta: cat.Meta(
         id: current.meta.id,
         notes: current.meta.notes,
         createdAt: current.meta.createdAt,
         updatedAt: _clock().toUtc().toIso8601String(),
       ),
-      manufacturer: current.manufacturer,
-      sku: current.sku,
-      model: current.model,
-      serialNumber: current.serialNumber,
-      capacity: current.capacity,
-      name: current.name,
-      demoMode: current.demoMode,
       serialConfig: serialConfig,
     );
     return _repository.saveDevice(device: updated);

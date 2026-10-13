@@ -1,13 +1,17 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:sku_catalog/sku_catalog.dart' as cat;
 
 import '../domain/domain.dart';
 import 'list_devices.dart';
 
 /// Update a CD library machine's identity fields.
 ///
-/// Updates [manufacturer], [sku], [model], [serialNumber], [capacity] and
-/// [name] on the machine identified by [deviceId]. Fields passed as `null`
-/// are left unchanged; the machine's per-unit [SerialConfig] is preserved.
+/// Under the catalog-backed model, the machine's identity ([manufacturer],
+/// [sku]/model number, [model], [capacity]) lives on its machine [cat.Sku],
+/// while [serialNumber] and [name] live on the machine [cat.Instance] (the
+/// [Device]). This use case rebuilds both and refreshes the instance's
+/// `updatedAt`. Fields passed as `null` are left unchanged; the machine's
+/// per-unit [SerialConfig] is preserved.
 ///
 /// [NotFoundFailure] when no machine has [deviceId]. A blank serial is
 /// refused with [InvalidInputFailure]; a serial already used by a *different*
@@ -40,7 +44,7 @@ class UpdateDevice {
     final currentTask = _repository.fetchDeviceById(id: deviceId);
     final allTask = ListDevices(_repository).call();
     return currentTask.flatMap((current) {
-      final newSerial = serialNumber ?? current.serialNumber;
+      final newSerial = serialNumber ?? current.serialNumber ?? '';
       if (newSerial.trim().isEmpty) {
         return TaskEither.left(
           InvalidInputFailure('A machine must have a non-empty serial number'),
@@ -63,21 +67,36 @@ class UpdateDevice {
             ),
           );
         }
-        final updated = Device(
-          meta: Meta(
+        final baseSku = current.machineSku ??
+            dacalMachineSku(
+              meta: cat.Meta(
+                id: 'dc:sku:machine:${current.meta.id}',
+                notes: '',
+                createdAt: '',
+                updatedAt: '',
+              ),
+              modelNumber: current.sku,
+              capacity: current.capacity,
+            );
+        final newSku = baseSku.copyWith(
+          modelNumber: sku ?? baseSku.modelNumber,
+          attributeValues: {
+            ...baseSku.attributeValues,
+            'capacity': newCapacity,
+            'model': model ?? current.model,
+            'manufacturer': manufacturer ?? current.manufacturer,
+          },
+        );
+        final updated = current.rebuild(
+          meta: cat.Meta(
             id: current.meta.id,
             notes: current.meta.notes,
             createdAt: current.meta.createdAt,
             updatedAt: _clock().toUtc().toIso8601String(),
           ),
-          manufacturer: manufacturer ?? current.manufacturer,
-          sku: sku ?? current.sku,
-          model: model ?? current.model,
           serialNumber: newSerial,
-          capacity: newCapacity,
-          name: name ?? current.name,
-          demoMode: current.demoMode,
-          serialConfig: current.serialConfig,
+          name: name,
+          machineSku: newSku,
         );
         return _repository.saveDevice(device: updated);
       });

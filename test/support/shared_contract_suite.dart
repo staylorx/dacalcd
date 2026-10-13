@@ -2,6 +2,8 @@ import 'package:decalcd/decalcd.dart';
 import 'package:shouldly/shouldly.dart';
 import 'package:test/test.dart';
 
+import 'device_factory.dart';
+
 /// The contract suite every `ILibraryRepository` adapter must pass.
 ///
 /// This is the shared suite the bible's at-least-two-repository-adapters rule
@@ -28,13 +30,13 @@ void sharedRepositoryContractSuite({
     String? manufacturer = 'Dacal',
     String? sku = 'DC-300',
     String? model = 'CD Library II',
-  }) => Device(
-    meta: meta(id),
-    manufacturer: manufacturer!,
-    sku: sku!,
-    model: model!,
-    serialNumber: serial,
+  }) => buildDevice(
+    id,
+    serial: serial,
     capacity: capacity,
+    manufacturer: manufacturer ?? 'Dacal',
+    sku: sku ?? 'DC-300',
+    model: model,
   );
 
   Disc disc(String id) => Disc(meta: meta(id), skuId: 'cd-sku-1');
@@ -79,13 +81,13 @@ void sharedRepositoryContractSuite({
       () async {
         await repo
             .saveDevice(
-              device: Device(
-                meta: meta('dev-full'),
+              device: buildDevice(
+                'dev-full',
+                serial: '9999',
+                capacity: 300,
                 manufacturer: 'Dacal',
                 sku: 'DC-300',
                 model: 'CD Library II',
-                serialNumber: '9999',
-                capacity: 300,
                 name: 'Rack 1',
               ),
             )

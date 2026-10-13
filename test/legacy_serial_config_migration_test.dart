@@ -2,6 +2,7 @@ import 'package:decalcd/decalcd.dart';
 import 'package:shouldly/shouldly.dart';
 import 'package:test/test.dart';
 
+import 'support/device_factory.dart';
 import 'support/memory_backends.dart';
 
 void main() {
@@ -18,15 +19,12 @@ void main() {
     updatedAt: '2026-01-01T00:00:00.000Z',
   );
 
-  Device machine(String id, {String? serial, SerialConfig? config}) => Device(
-    meta: meta(id),
-    manufacturer: 'Dacal',
-    sku: 'DC-300',
-    model: 'CD Library II',
-    serialNumber: serial ?? 'm-$id',
-    capacity: 150,
-    serialConfig: config,
-  );
+  Device machine(String id, {String? serial, SerialConfig? config}) =>
+      buildDevice(
+        id,
+        serial: serial ?? 'm-$id',
+        serialConfig: config,
+      );
 
   group('migrateLegacySerialConfig', () {
     test(

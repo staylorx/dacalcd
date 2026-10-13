@@ -1,6 +1,8 @@
 import 'package:decalcd/decalcd.dart';
 import 'package:test/test.dart';
 
+import 'support/device_factory.dart';
+
 /// Locks the reverse-engineered USB/HID connection facts into the core model
 /// (captured live via USBPcap, see docs/usb-capture-session-*.md) so the
 /// knowledge survives and any future HID transport can open this exact unit.
@@ -44,19 +46,8 @@ void main() {
     // A CD library machine is a SKU classified `hid`; the concrete connection
     // detail is a first-class HidConfig entity held as a property of the
     // Device instance, mirroring serialConfig — not a trait-attribute value.
-    Device deviceWithHid() => Device(
-      meta: Meta(
-        id: 'device-67808',
-        notes: '',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      ),
-      manufacturer: 'Dacal',
-      sku: 'DC-300',
-      model: 'CD Library II',
-      serialNumber: '67808',
-      capacity: 150,
-    ).copyWithHidConfig(HidConfig.dacal);
+    Device deviceWithHid() =>
+        buildDevice('device-67808').copyWithHidConfig(HidConfig.dacal);
 
     test('survives Device JSON round-trip', () {
       final device = deviceWithHid();

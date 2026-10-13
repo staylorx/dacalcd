@@ -3,6 +3,7 @@ import 'package:shouldly/shouldly.dart';
 import 'package:test/test.dart';
 
 import 'support/memory_backends.dart';
+import 'support/device_factory.dart';
 
 void main() {
   Meta meta(String id) => Meta(
@@ -13,14 +14,7 @@ void main() {
   );
 
   Device device(String id, {String serial = '67808', int capacity = 150}) =>
-      Device(
-        meta: meta(id),
-        manufacturer: 'Dacal',
-        sku: 'DC-300',
-        model: 'CD Library II',
-        serialNumber: serial,
-        capacity: capacity,
-      );
+      buildDevice(id, serial: serial, capacity: capacity);
 
   Disc disc(String id, {String skuId = 'cd-sku-1'}) =>
       Disc(meta: meta(id), skuId: skuId);

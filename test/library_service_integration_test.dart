@@ -8,10 +8,11 @@
 // produced by the same shared LibraryService — so neither entry point reads
 // the repository on its own forged path.
 import 'package:decalcd/decalcd.dart';
-import 'package:decalcd/src/cli/cli.dart';
+import 'package:decalcd/decalcd.dart';
 import 'package:shouldly/shouldly.dart';
 import 'package:test/test.dart';
 
+import 'support/device_factory.dart';
 import 'support/memory_library_repository.dart';
 
 Meta _meta(String id) => Meta(
@@ -26,13 +27,10 @@ Future<MemoryLibraryRepository> _seed() async {
   final repo = MemoryLibraryRepository();
   await repo
       .saveDevice(
-        device: Device(
-          meta: _meta('dev-a'),
-          manufacturer: 'Dacal',
-          sku: 'DC-300',
-          model: 'CD Library II',
-          serialNumber: '67808',
+        device: buildDevice(
+          'dev-a',
           capacity: 3,
+          serial: '67808',
           name: 'Unit 67808',
         ),
       )
@@ -189,13 +187,10 @@ void main() {
       // Place it into the carousel, then try to remove it from the library.
       await repo
           .saveDevice(
-            device: Device(
-              meta: _meta('dev-a'),
-              manufacturer: 'Dacal',
-              sku: 'DC-300',
-              model: 'CD Library II',
-              serialNumber: '67808',
+            device: buildDevice(
+              'dev-a',
               capacity: 3,
+              serial: '67808',
             ),
           )
           .run();
