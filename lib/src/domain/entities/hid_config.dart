@@ -10,19 +10,21 @@ const String kHidTransportStringDescriptor = 'hid_string_descriptor';
 /// of the README contract: `ACK`, `BUSY`, `SOS`, `ERROR`.
 const List<String> kDacalStatusTokens = ['ACK', 'BUSY', 'SOS', 'ERROR'];
 
-/// Saved USB/HID connection info for a Dacal CD carousel — a Cypress
-/// CY7C64225 HID-UART bridge, VID `0x04b4` / PID `0x5a9b`.
+/// Runtime USB/HID connection configuration for a Dacal CD carousel — a
+/// Cypress CY7C64225 HID-UART bridge, VID `0x04b4` / PID `0x5a9b`.
 ///
 /// This is the object that "captures all the connection info" reverse
 /// engineered from live USB captures (see `docs/usb-capture-session-*.md`):
 /// how the vendor software reaches the machine, so a future HID transport can
 /// open this exact unit without another sniffing session. A CD library
-/// machine is a SKU that carries the `hid` trait (see `kHidTrait`); this is
-/// the connection detail stored on that trait.
+/// machine is a SKU that carries the `hid` trait (see `kHidTrait`) as its
+/// classification; this config is a first-class domain entity held as a
+/// property of the machine instance ([Device.hidConfig]), mirroring
+/// [serialConfig] — not stuffed into trait-attribute values.
 ///
 /// It is a plain value object: no behaviour, no storage. Persisting it is the
-/// caller's job via the repository / trait-attribute values.
-class HidConnectionInfo extends Equatable {
+/// caller's job via the repository / device store.
+class HidConfig extends Equatable {
   /// Which transport mechanism the connection uses. Only
   /// [kHidTransportStringDescriptor] is known/verified today.
   final String transportKind;
@@ -69,8 +71,8 @@ class HidConnectionInfo extends Equatable {
   /// captures, so this is a deliberately open seam awaiting a TX capture.
   final HidTxInfo tx;
 
-  /// Creates an [HidConnectionInfo].
-  const HidConnectionInfo({
+  /// Creates an [HidConfig].
+  const HidConfig({
     required this.transportKind,
     required this.vid,
     required this.pid,
@@ -86,11 +88,11 @@ class HidConnectionInfo extends Equatable {
   });
 
   /// The canonical Dacal HID connection (Cypress 04B4:5A9B on `\\.\USBPcap2`).
-  static const HidConnectionInfo dacal = HidConnectionInfo(
+  static const HidConfig dacal = HidConfig(
     transportKind: kHidTransportStringDescriptor,
     vid: 0x04b4,
     pid: 0x5a9b,
-    busFilter: r'\\.\USBPcap2',
+    busFilter: r'\\\\.\\USBPcap2',
     deviceAddress: 10,
   );
 
@@ -110,10 +112,10 @@ class HidConnectionInfo extends Equatable {
     'tx': tx.toJson(),
   };
 
-  /// Parses an [HidConnectionInfo] from snake_case JSON, falling back to the
+  /// Parses an [HidConfig] from snake_case JSON, falling back to the
   /// canonical Dacal defaults when a field is missing.
-  factory HidConnectionInfo.fromJson(Map<String, dynamic> json) =>
-      HidConnectionInfo(
+  factory HidConfig.fromJson(Map<String, dynamic> json) =>
+      HidConfig(
         transportKind: json['transport_kind'] as String? ??
             kHidTransportStringDescriptor,
         vid: json['vid'] as int? ?? 0x04b4,

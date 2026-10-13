@@ -62,7 +62,7 @@ const Trait kSerializableTrait = Trait(
 /// Canonical name of the trait a CD library machine's SKU carries when it
 /// exposes a USB/HID connection. The SKU is classified as `hid`; the concrete
 /// per-instance connection detail (Cypress bridge identity, bus handle,
-/// framing) is a `HidConnectionInfo` field on the `Device` instance.
+/// framing) is a `HidConfig` field on the `Device` instance.
 const String kHidTraitName = 'hid';
 
 /// Canonical id of the "hid" trait.
@@ -72,7 +72,7 @@ const String kHidTraitId = 'trait:hid';
 ///
 /// A CD library machine is a SKU whose USB/HID connection is carried by a
 /// Cypress CY7C64225 HID-UART bridge. The SKU carries the `hid` trait; the
-/// per-instance connection detail lives on the `Device` (`HidConnectionInfo`).
+/// per-instance connection detail lives on the `Device` (`HidConfig`).
 const Trait kHidTrait = Trait(
   meta: Meta(id: kHidTraitId, notes: '', createdAt: '', updatedAt: ''),
   name: kHidTraitName,

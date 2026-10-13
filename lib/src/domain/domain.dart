@@ -15,7 +15,7 @@ export 'contracts/serial_config_store.dart';
 export 'contracts/unit_of_work.dart';
 export 'entities/device.dart';
 export 'entities/disc.dart';
-export 'entities/hid_connection.dart';
+export 'entities/hid_config.dart';
 export 'entities/meta.dart';
 export 'entities/serial_config.dart';
 export 'entities/slot.dart';

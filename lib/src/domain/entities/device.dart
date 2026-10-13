@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import 'hid_config.dart';
 import 'meta.dart';
 import 'serial_config.dart';
 import 'trait.dart';
@@ -53,6 +54,14 @@ class Device extends Equatable {
   /// baud). One per CD library machine — never a single app-wide port.
   final SerialConfig? serialConfig;
 
+  /// Per-machine USB/HID connection details (Cypress CY7C64225 HID-UART
+  /// bridge, VID 0x04b4 / PID 0x5a9b) reverse-engineered from live USBPcap
+  /// captures (see `docs/usb-capture-session-*.md`). Like [serialConfig], it
+  /// is a first-class domain entity held as a property of the machine
+  /// instance, not a trait-attribute value. The machine's SKU still carries
+  /// the `hid` trait (see `kHidTrait`) as its classification.
+  final HidConfig? hidConfig;
+
   /// Per-machine demo mode flag.
   ///
   /// When auto-detection of a physical machine fails, the machine falls back
@@ -72,6 +81,7 @@ class Device extends Equatable {
     required this.capacity,
     this.name,
     this.serialConfig,
+    this.hidConfig,
     this.demoMode = false,
   });
 
@@ -88,6 +98,25 @@ class Device extends Equatable {
     capacity: capacity,
     name: name,
     serialConfig: serialConfig,
+    hidConfig: hidConfig,
+    demoMode: demoMode,
+  );
+
+  /// Returns a copy of this machine with a new per-machine [hidConfig].
+  ///
+  /// Like [serialConfig], the HID connection detail belongs to a single
+  /// physical unit, so it is set per instance rather than app-wide or as a
+  /// trait-attribute value.
+  Device copyWithHidConfig(HidConfig? hidConfig) => Device(
+    meta: meta,
+    manufacturer: manufacturer,
+    sku: sku,
+    model: model,
+    serialNumber: serialNumber,
+    capacity: capacity,
+    name: name,
+    serialConfig: serialConfig,
+    hidConfig: hidConfig,
     demoMode: demoMode,
   );
 
@@ -101,6 +130,7 @@ class Device extends Equatable {
     capacity: capacity,
     name: name,
     serialConfig: serialConfig,
+    hidConfig: hidConfig,
     demoMode: demoMode,
   );
 
@@ -128,6 +158,7 @@ class Device extends Equatable {
     'trait_attribute_values': traitAttributeValues,
     'demo_mode': demoMode,
     if (serialConfig != null) 'serial_config': serialConfig!.toJson(),
+    if (hidConfig != null) 'hid_config': hidConfig!.toJson(),
   };
 
   /// Creates a [Device] from snake_case JSON.
@@ -143,6 +174,9 @@ class Device extends Equatable {
     serialConfig: json['serial_config'] is Map<String, dynamic>
         ? SerialConfig.fromJson(json['serial_config'] as Map<String, dynamic>)
         : null,
+    hidConfig: json['hid_config'] is Map<String, dynamic>
+        ? HidConfig.fromJson(json['hid_config'] as Map<String, dynamic>)
+        : null,
   );
 
   @override
@@ -155,6 +189,7 @@ class Device extends Equatable {
     capacity,
     name,
     serialConfig,
+    hidConfig,
     demoMode,
   ];
 }
