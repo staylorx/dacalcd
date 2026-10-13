@@ -14,6 +14,7 @@
 /// done.
 library;
 
+export 'sembast_catalog_repository.dart';
 export 'sembast_library_repository.dart';
 export 'sembast_schema.dart';
 export 'sembast_transaction_scope.dart';

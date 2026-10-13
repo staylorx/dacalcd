@@ -4,6 +4,7 @@ description: >-
   over a serial or USB-backed serial link on Windows.
 version: 0.1.0
 repository: https://github.com/taybiz/decalcd
+publish_to: none
 
 environment:
   sdk: '>=3.10.0 <4.0.0'

@@ -10,10 +10,11 @@ rules:
       - lib/src/domain/**
       - package:equatable/**
       - package:fpdart/**
+      - package:sku_catalog/**
       - dart:**
     reason: |
       The model only imports its own area plus the sanctioned value-type
-      packages (equatable, fpdart).
+      packages (equatable, fpdart) and the shared sku_catalog model.
 
   # The operations may import the model (and value-type packages) only.
   - target: lib/src/usecases/**
@@ -23,6 +24,7 @@ rules:
       - lib/src/domain/**
       - package:equatable/**
       - package:fpdart/**
+      - package:sku_catalog/**
       - dart:**
     reason: |
       Use cases depend on the domain contracts, never on anything above them,

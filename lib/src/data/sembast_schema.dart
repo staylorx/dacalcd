@@ -16,6 +16,34 @@ final StoreRef<String, Map<String, Object?>> slotStore = stringMapStoreFactory
 final StoreRef<String, Map<String, Object?>> discStore = stringMapStoreFactory
     .store('discs');
 
+/// The store that backs the shared sku_catalog model: every catalog [Sku]
+/// row (machines and discs), keyed by its sku_catalog [Meta.id].
+final StoreRef<String, Map<String, Object?>> skuStore = stringMapStoreFactory
+    .store('skus');
+
+/// The store that backs the shared sku_catalog trait model — every [Trait]
+/// (e.g. `hid`, `serializable`, `cd`, `dvd`), keyed by its sku_catalog
+/// [Meta.id].
+final StoreRef<String, Map<String, Object?>> traitStore = stringMapStoreFactory
+    .store('traits');
+
+/// The store that backs sku_catalog trait-attribute definitions (e.g. the
+/// `serial_number` attribute on the `serializable` trait).
+final StoreRef<String, Map<String, Object?>> traitAttributeDefinitionStore =
+    stringMapStoreFactory.store('trait_attribute_definitions');
+
+/// The store that backs sku_catalog [Instance] rows — the physical machines at
+/// each site (e.g. serial `67808`), keyed by their sku_catalog [Meta.id].
+final StoreRef<String, Map<String, Object?>> instanceStore =
+    stringMapStoreFactory.store('instances');
+
+/// Decal-side connection config for a machine, keyed by the machine's
+/// sku_catalog [Instance] id. Holds the typed `hidConfig`/`serialConfig`/
+/// `demoMode` that sku_catalog's model does not express (they are per-instance
+/// decal domain, not trait attributes).
+final StoreRef<String, Map<String, Object?>> machineConfigStore =
+    stringMapStoreFactory.store('machine_config');
+
 /// The store that marks the storage schema version reached by the latest
 /// migration. Written by [libraryMigrations].
 final StoreRef<String, Map<String, Object?>> schemaStore = stringMapStoreFactory
