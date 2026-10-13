@@ -22,6 +22,7 @@ const _allowedEdges = <String, Set<String>>{
     'package:decalcd/src/domain/',
     'package:fpdart/',
     'package:equatable/',
+    'package:sku_catalog/',
   },
   'usecases': <String>{
     'package:decalcd/src/usecases/',

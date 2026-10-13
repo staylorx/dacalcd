@@ -15,6 +15,8 @@ dependencies:
   path: ^1.9.0
   sembast: ^3.8.11
   serial_port_win32: ^3.0.0
+  sku_catalog:
+    path: ../../sku_catalog
   win32: ^6.4.0
 
 dev_dependencies:

@@ -9,6 +9,7 @@
 library;
 
 export 'json_coercion.dart';
+export 'catalog/dacal_catalog.dart';
 export 'contracts/library_repository.dart';
 export 'contracts/no_op_unit_of_work.dart';
 export 'contracts/serial_config_store.dart';
