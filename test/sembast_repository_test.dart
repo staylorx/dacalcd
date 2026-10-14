@@ -95,6 +95,76 @@ void main() {
           (marker?['version']).should.be(librarySchemaVersion);
         },
       );
+
+      test('Then the v3 step re-points discs and thins the slot rows', () async {
+        // A v2 database: a catalogue disc in the blob store, and a slot row
+        // that embeds a copy of another disc.
+        await discStore
+            .record('disc-1')
+            .put(db, buildDisc('disc-1', skuId: 'cd-sku-1').toJson());
+        final seated = buildDisc('disc-2', skuId: 'cd-sku-9', slotNumber: 2);
+        await slotStore.record('dev-a-slot-2').put(db, {
+          'id': 'dev-a-slot-2',
+          'notes': '',
+          'created_at': '2026-01-01T00:00:00.000Z',
+          'updated_at': '2026-01-01T00:00:00.000Z',
+          'device_id': 'dev-a',
+          'slot_number': 2,
+          'disc': seated.toJson(),
+        });
+
+        await libraryMigrations(db, 2, 3);
+
+        // The blob store is retired…
+        (await discStore.find(db)).length.should.be(0);
+        // …the slot row is layout only…
+        final layout = (await slotStore.record('dev-a-slot-2').get(db))!;
+        layout.containsKey('disc').should.be(false);
+        layout['device_id'].should.be('dev-a');
+        layout['slot_number'].should.be(2);
+        // …and both discs are catalog instances, the slotted one still placed.
+        final placed = (await instanceStore.record('disc-2').get(db))!;
+        placed['locate_id'].should.be('dev-a');
+        ((placed['attribute_values'] as Map)[kSlotNumberTraitAttributeKey] as int)
+            .should
+            .be(2);
+        (await instanceStore.record('disc-1').get(db))!['locate_id'].should
+            .beNull();
+      });
+    });
+
+    group('Given a disc placed in a slot', () {
+      test('Then placement lands on the instance, not on the slot row', () async {
+        await seedDevice('dev-a');
+        await repo
+            .updateSlot(
+              slot: Slot(
+                meta: meta('dev-a-slot-2'),
+                deviceId: 'dev-a',
+                slotNumber: 2,
+                disc: buildDisc('disc-1', skuId: 'cd-sku-1'),
+              ),
+            )
+            .run();
+
+        // The slot row carries the carousel layout and no disc copy.
+        final layout = (await slotStore.record('dev-a-slot-2').get(db))!;
+        layout.containsKey('disc').should.be(false);
+
+        // The disc instance carries the placement.
+        final placed = (await instanceStore.record('disc-1').get(db))!;
+        placed['locate_id'].should.be('dev-a');
+        ((placed['attribute_values'] as Map)[kSlotNumberTraitAttributeKey] as int)
+            .should
+            .be(2);
+
+        // Emptying the slot unplaces it — the disc stays catalogued.
+        final empty = await repo.fetchSlot(deviceId: 'dev-a', slotNumber: 2).run();
+        await repo.updateSlot(slot: empty.getOrElse((_) => fail('Right')).empty()).run();
+        final unplaced = (await instanceStore.record('disc-1').get(db))!;
+        unplaced['locate_id'].should.beNull();
+        (await repo.fetchDisc(discId: 'disc-1').run()).isRight().should.be(true);
+      });
     });
 
     group('Given a SembastUnitOfWork sharing the repository scope', () {

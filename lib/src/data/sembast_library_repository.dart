@@ -8,19 +8,28 @@ import 'sembast_transaction_scope.dart';
 
 /// A sembast-backed [ILibraryRepository].
 ///
-/// **Machines** are stored the catalog-backed way: a machine's identity lands
-/// in the shared sku_catalog stores — its machine [cat.Sku] in `skuStore` and
-/// its physical unit as a [cat.Instance] in `instanceStore` — while its typed
-/// connection config goes to the `machineConfigStore` sidecar keyed by the
-/// instance id ([MachineConfig]). This is the same storage the catalog
-/// repositories ([SembastSkuRepository], [SembastInstanceRepository]) read, so
-/// a machine written here is a first-class catalog record, not a private blob.
+/// Everything persistent here is a catalog record:
 ///
-/// **Slots** (with their embedded [Disc] copy) and the disc catalog still ride
-/// in `slotStore`/`discStore`; re-pointing those onto the catalog stores is a
-/// later slice. Every public method returns an fpdart [TaskEither] and never
-/// throws: a genuine storage fault becomes a [StorageFailure] via
-/// `TaskEither.tryCatch`, and an absent record a [NotFoundFailure].
+/// * a **machine**'s identity lands in the shared sku_catalog stores — its
+///   machine [cat.Sku] in `skuStore` and its physical unit as a [cat.Instance]
+///   in `instanceStore` — while its typed connection config goes to the
+///   `machineConfigStore` sidecar keyed by the instance id ([MachineConfig]);
+/// * a **disc** is the same shape: its media [cat.Sku] in `skuStore`, the
+///   physical disc as a [cat.Instance] in `instanceStore`;
+/// * a **slot** row is the machine's carousel *layout* only (which slots
+///   exist). Placement is not a copy of the disc held by the slot — it is a
+///   value on the disc instance: `locateId` is the machine it sits in and the
+///   `slot_number` attribute is the position. A slot read back is therefore
+///   hydrated from the instance store, and slotting a disc *is* reifying it as
+///   an instance placed at that position.
+///
+/// This is the same storage the catalog repositories ([SembastSkuRepository],
+/// [SembastInstanceRepository]) read, so a machine or disc written here is a
+/// first-class catalog record, not a private blob.
+///
+/// Every public method returns an fpdart [TaskEither] and never throws: a
+/// genuine storage fault becomes a [StorageFailure] via `TaskEither.tryCatch`,
+/// and an absent record a [NotFoundFailure].
 ///
 /// A caller that wants a group of writes to be atomic passes a
 /// [SembastUnitOfWork] built on the **same** [SembastTransactionScope] as this
@@ -44,13 +53,15 @@ class SembastLibraryRepository implements ILibraryRepository {
   /// store operations target.
   DatabaseClient get _client => _scope.active ?? _database;
 
+  // ---------------------------------------------------------------- machines
+
   @override
   TaskEither<DecalFailure, List<Device>> fetchDevices() =>
       TaskEither.tryCatch(() async {
         final records = await instanceStore.find(_client);
         final devices = <Device>[];
         for (final record in records) {
-          final device = await _deviceFromInstanceRecord(record.value);
+          final device = await _deviceFromInstance(record.value);
           if (device != null) devices.add(device);
         }
         return devices;
@@ -65,7 +76,7 @@ class SembastLibraryRepository implements ILibraryRepository {
       finder: Finder(filter: Filter.equals('serial_number', serialCode)),
     );
     for (final record in records) {
-      final device = await _deviceFromInstanceRecord(record.value);
+      final device = await _deviceFromInstance(record.value);
       if (device != null) return device;
     }
     throw _NotFound('Device with serial code "$serialCode" not found');
@@ -78,7 +89,7 @@ class SembastLibraryRepository implements ILibraryRepository {
         if (record == null) {
           throw _NotFound('Device "$id" not found');
         }
-        final device = await _deviceFromInstanceRecord(record);
+        final device = await _deviceFromInstance(record);
         if (device == null) {
           throw _NotFound('Device "$id" not found');
         }
@@ -112,8 +123,7 @@ class SembastLibraryRepository implements ILibraryRepository {
         }
         // Drop the machine's sidecar config too, so no orphan is left behind.
         await machineConfigStore.record(id).delete(_client);
-        // Cascade: remove every slot belonging to the deleted machine so it
-        // leaves no orphaned records.
+        // Cascade: remove the machine's carousel layout rows…
         final slots = await slotStore.find(
           _client,
           finder: Finder(filter: Filter.equals('device_id', id)),
@@ -121,26 +131,34 @@ class SembastLibraryRepository implements ILibraryRepository {
         for (final slot in slots) {
           await slotStore.record(slot.key).delete(_client);
         }
+        // …and unplace any disc that sat in it — the discs stay catalogued,
+        // they are simply no longer in a machine.
+        for (final instance in await _instancesLocatedAt(id)) {
+          await instanceStore
+              .record(instance.meta.id)
+              .put(_client, _unplace(instance).toJson());
+        }
       }, _failureOrStorageError);
 
   /// Reassembles a [Device] from a stored catalog instance record: reads the
   /// machine [cat.Sku] it points at and its sidecar config, then joins them.
   ///
   /// Returns null when the record is not a machine instance (e.g. a disc
-  /// instance placed at a location), so callers skip it. Machine-ness is judged
-  /// by the referenced SKU carrying the `serializable` trait — falling back to a
-  /// non-empty instance serial number when the SKU row is absent.
-  Future<Device?> _deviceFromInstanceRecord(Map<String, dynamic> json) async {
+  /// instance placed in a slot), so callers skip it.
+  Future<Device?> _deviceFromInstance(Map<String, dynamic> json) async {
     final instance = cat.Instance.fromJson(json);
-    final skuJson = await skuStore.record(instance.skuId).get(_client);
-    final sku = skuJson == null ? null : cat.Sku.fromJson(skuJson);
+    final sku = await _skuFor(instance.skuId);
     if (!_isMachine(instance, sku)) return null;
-    final configJson =
-        await machineConfigStore.record(instance.meta.id).get(_client);
-    final config =
-        configJson == null ? null : MachineConfig.fromJson(configJson);
+    final configJson = await machineConfigStore
+        .record(instance.meta.id)
+        .get(_client);
+    final config = configJson == null
+        ? null
+        : MachineConfig.fromJson(configJson);
     return Device.fromParts(instance: instance, machineSku: sku, config: config);
   }
+
+  // ------------------------------------------------------------------- slots
 
   @override
   TaskEither<DecalFailure, List<Slot>> listSlots({required String deviceId}) =>
@@ -156,7 +174,11 @@ class SembastLibraryRepository implements ILibraryRepository {
             sortOrders: [SortOrder('slot_number')],
           ),
         );
-        return records.map((r) => Slot.fromJson(r.value)).toList();
+        final slots = <Slot>[];
+        for (final record in records) {
+          slots.add(await _slotFromLayout(record.value));
+        }
+        return slots;
       }, _failureOrStorageError);
 
   @override
@@ -176,65 +198,227 @@ class SembastLibraryRepository implements ILibraryRepository {
     if (record == null) {
       throw _NotFound('Slot $slotNumber on device "$deviceId" not found');
     }
-    return Slot.fromJson(record.value);
+    return _slotFromLayout(record.value);
   }, _failureOrStorageError);
 
   @override
   TaskEither<DecalFailure, Slot> updateSlot({required Slot slot}) =>
       TaskEither.tryCatch(() async {
-        await slotStore.record(slot.meta.id).put(_client, slot.toJson());
+        // The row is the carousel layout only — placement lives on the disc
+        // instance, so this writes both the layout and the placement.
+        await slotStore
+            .record(slot.meta.id)
+            .put(_client, _slotLayoutJson(slot));
+        await _applyPlacement(slot: slot);
         return slot;
       }, _storageError);
 
   @override
   TaskEither<DecalFailure, Slot?> locateDisc({required String discId}) =>
       TaskEither.tryCatch(() async {
-        final records = await slotStore.find(
+        final record = await instanceStore.record(discId).get(_client);
+        if (record == null) return null;
+        final instance = cat.Instance.fromJson(record);
+        final disc = await _discFor(instance);
+        if (disc == null) return null; // a machine, not a disc
+        final deviceId = instance.locateId;
+        final slotNumber = _slotNumberOf(instance);
+        if (deviceId == null || slotNumber == null) return null;
+        // Prefer the machine's own layout row for the slot's identity.
+        final layout = await slotStore.findFirst(
           _client,
-          finder: Finder(filter: Filter.equals('disc.id', discId)),
+          finder: Finder(
+            filter: Filter.and([
+              Filter.equals('device_id', deviceId),
+              Filter.equals('slot_number', slotNumber),
+            ]),
+          ),
         );
-        if (records.isEmpty) return null;
-        return Slot.fromJson(records.first.value);
+        final meta = layout == null
+            ? Meta(
+                id: 'slot:$deviceId:$slotNumber',
+                notes: '',
+                createdAt: '',
+                updatedAt: '',
+              )
+            : Meta.fromJson(layout.value);
+        return Slot(
+          meta: meta,
+          deviceId: deviceId,
+          slotNumber: slotNumber,
+          disc: disc,
+        );
       }, _storageError);
+
+  /// Writes the placement a [Slot] describes onto the catalog stores: the disc
+  /// instance gets `locateId` = the machine and its `slot_number` attribute,
+  /// and whatever used to sit at that position is unplaced.
+  ///
+  /// An empty slot unplaces the disc currently at that position. Placing a disc
+  /// reifies it: the disc is written as an instance *at that position*.
+  Future<void> _applyPlacement({required Slot slot}) async {
+    final seated = await _instancePlacedAt(slot.deviceId, slot.slotNumber);
+    final disc = slot.disc;
+    if (disc == null) {
+      if (seated != null) {
+        await instanceStore
+            .record(seated.meta.id)
+            .put(_client, _unplace(seated).toJson());
+      }
+      return;
+    }
+    // Anything different that was sitting here is displaced first.
+    if (seated != null && seated.meta.id != disc.meta.id) {
+      await instanceStore
+          .record(seated.meta.id)
+          .put(_client, _unplace(seated).toJson());
+    }
+    final mediaSku = disc.discSku;
+    if (mediaSku != null) {
+      await skuStore.record(mediaSku.meta.id).put(_client, mediaSku.toJson());
+    }
+    final placed = disc.toInstance().copyWith(
+      locateId: slot.deviceId,
+      attributeValues: {
+        ...disc.attributeValues,
+        kSlotNumberTraitAttributeKey: slot.slotNumber,
+      },
+    );
+    await instanceStore.record(placed.meta.id).put(_client, placed.toJson());
+  }
+
+  /// Rebuilds a [Slot] from its layout row plus whatever disc instance is
+  /// placed at that position.
+  Future<Slot> _slotFromLayout(Map<String, dynamic> json) async {
+    final deviceId = json['device_id'] as String? ?? '';
+    final slotNumber = (json['slot_number'] as num?)?.toInt() ?? 0;
+    final seated = await _instancePlacedAt(deviceId, slotNumber);
+    return Slot(
+      meta: Meta.fromJson(json),
+      deviceId: deviceId,
+      slotNumber: slotNumber,
+      disc: seated == null ? null : await _discFor(seated),
+    );
+  }
+
+  /// The carousel-layout record for a slot: which slot exists on which
+  /// machine. Deliberately carries no copy of the disc — placement is the
+  /// instance's, not the slot's.
+  Map<String, dynamic> _slotLayoutJson(Slot slot) => {
+    ...slot.meta.toJson(),
+    'device_id': slot.deviceId,
+    'slot_number': slot.slotNumber,
+  };
+
+  /// The instance placed at ([deviceId], [slotNumber]) — the disc whose
+  /// `locateId` is the machine and whose `slot_number` attribute is the
+  /// position.
+  Future<cat.Instance?> _instancePlacedAt(
+    String deviceId,
+    int slotNumber,
+  ) async {
+    final records = await instanceStore.find(
+      _client,
+      finder: Finder(
+        filter: Filter.and([
+          Filter.equals('locate_id', deviceId),
+          Filter.equals(
+            'attribute_values.$kSlotNumberTraitAttributeKey',
+            slotNumber,
+          ),
+        ]),
+      ),
+    );
+    if (records.isEmpty) return null;
+    return cat.Instance.fromJson(records.first.value);
+  }
+
+  /// Every instance placed at [deviceId] (used by the delete cascade).
+  Future<List<cat.Instance>> _instancesLocatedAt(String deviceId) async {
+    final records = await instanceStore.find(
+      _client,
+      finder: Finder(filter: Filter.equals('locate_id', deviceId)),
+    );
+    return records
+        .map((r) => cat.Instance.fromJson(r.value))
+        .toList(growable: false);
+  }
+
+  // ------------------------------------------------------------------- discs
 
   @override
   TaskEither<DecalFailure, Disc> saveDisc({required Disc disc}) =>
       TaskEither.tryCatch(() async {
-        await discStore.record(disc.meta.id).put(_client, disc.toJson());
+        await _putDisc(disc);
         return disc;
       }, _storageError);
 
   @override
   TaskEither<DecalFailure, Disc> fetchDisc({required String discId}) =>
       TaskEither.tryCatch(() async {
-        final record = await discStore.record(discId).get(_client);
+        final record = await instanceStore.record(discId).get(_client);
         if (record == null) {
           throw _NotFound('Disc "$discId" not found');
         }
-        return Disc.fromJson(record);
+        final instance = cat.Instance.fromJson(record);
+        final disc = await _discFor(instance);
+        if (disc == null) {
+          throw _NotFound('Disc "$discId" not found');
+        }
+        return disc;
       }, _failureOrStorageError);
 
   @override
   TaskEither<DecalFailure, List<Disc>> listDiscs() =>
       TaskEither.tryCatch(() async {
-        final records = await discStore.find(
-          _client,
-          finder: Finder(sortOrders: [
-            SortOrder('sku_id'),
-            SortOrder('name'),
-          ]),
-        );
-        return records.map((r) => Disc.fromJson(r.value)).toList();
+        final records = await instanceStore.find(_client);
+        final discs = <Disc>[];
+        for (final record in records) {
+          final disc = await _discFor(cat.Instance.fromJson(record.value));
+          if (disc != null) discs.add(disc);
+        }
+        discs.sort((a, b) {
+          final bySku = a.skuId.compareTo(b.skuId);
+          if (bySku != 0) return bySku;
+          return (a.label ?? '').compareTo(b.label ?? '');
+        });
+        return discs;
       }, _failureOrStorageError);
 
   @override
   TaskEither<DecalFailure, void> deleteDisc({required String discId}) =>
       TaskEither.tryCatch(() async {
-        final deleted = await discStore.record(discId).delete(_client);
+        final deleted = await instanceStore.record(discId).delete(_client);
         if (deleted == null) {
           throw _NotFound('Disc "$discId" not found');
         }
       }, _failureOrStorageError);
+
+  /// Writes a disc as its two catalog halves: the media [cat.Sku] to
+  /// `skuStore` and the physical disc instance to `instanceStore`.
+  Future<void> _putDisc(Disc disc) async {
+    final sku = disc.discSku;
+    if (sku != null) {
+      await skuStore.record(sku.meta.id).put(_client, sku.toJson());
+    }
+    await instanceStore
+        .record(disc.meta.id)
+        .put(_client, disc.toInstance().toJson());
+  }
+
+  /// Reassembles a [Disc] from a stored instance, or null when the instance is
+  /// a machine rather than a disc.
+  Future<Disc?> _discFor(cat.Instance instance) async {
+    final sku = await _skuFor(instance.skuId);
+    if (_isMachine(instance, sku)) return null;
+    return Disc.fromParts(instance: instance, discSku: sku);
+  }
+
+  /// The catalog SKU named by [skuId], or null when the row is absent.
+  Future<cat.Sku?> _skuFor(String skuId) async {
+    final json = await skuStore.record(skuId).get(_client);
+    return json == null ? null : cat.Sku.fromJson(json);
+  }
 }
 
 /// A repository-internal "not found" signal. It is caught by
@@ -258,7 +442,7 @@ DecalFailure _storageError(Object error, StackTrace stackTrace) =>
     StorageFailure('Storage operation failed: $error');
 
 /// Whether a stored instance record is a CD library **machine** rather than
-/// some other instance (e.g. a disc placed in a slot).
+/// some other instance (a disc placed in a slot).
 ///
 /// A machine's SKU carries the `serializable` trait (every machine has a serial
 /// number, captured on that trait). When the SKU row is absent the instance's
@@ -267,4 +451,17 @@ bool _isMachine(cat.Instance instance, cat.Sku? sku) {
   if (sku != null) return sku.traitIds.contains(kDcSerializableTrait.meta.id);
   final serial = instance.serialNumber;
   return serial != null && serial.isNotEmpty;
+}
+
+/// The slot an instance occupies, from its `slot_number` attribute; null when
+/// it is not slotted.
+int? _slotNumberOf(cat.Instance instance) =>
+    (instance.attributeValues[kSlotNumberTraitAttributeKey] as num?)?.toInt();
+
+/// The instance with its placement cleared: no [cat.Instance.locateId] and no
+/// `slot_number` attribute.
+cat.Instance _unplace(cat.Instance instance) {
+  final values = {...instance.attributeValues}
+    ..remove(kSlotNumberTraitAttributeKey);
+  return instance.copyWith(locateId: null, attributeValues: values);
 }
