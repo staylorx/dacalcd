@@ -85,13 +85,13 @@ void main() {
 
     group('Given the schema migration', () {
       test(
-        'Then openDatabase runs the onVersionChanged migration to v1',
+        'Then openDatabase runs the onVersionChanged migration to v$librarySchemaVersion',
         () async {
           db.version.should.be(librarySchemaVersion);
 
           final marker = await schemaStore.record('version').get(db);
           marker.should.not.beNull();
-          (marker?['version']).should.be(1);
+          (marker?['version']).should.be(librarySchemaVersion);
         },
       );
     });

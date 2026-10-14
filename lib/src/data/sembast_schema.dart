@@ -1,5 +1,7 @@
 import 'package:sembast/sembast.dart';
 
+import '../domain/domain.dart';
+
 /// The store that holds every persistent [Device] row, keyed by the device's
 /// opaque [Meta.id].
 final StoreRef<String, Map<String, Object?>> deviceStore = stringMapStoreFactory
@@ -53,7 +55,11 @@ final StoreRef<String, Map<String, Object?>> schemaStore = stringMapStoreFactory
 ///
 /// Bump this (and add a case to [libraryMigrations]) whenever a change needs
 /// a data migration rather than a fresh store.
-const int librarySchemaVersion = 1;
+///
+/// * v1 — baseline.
+/// * v2 — machines moved off the single `devices` blob store onto the shared
+///   catalog stores (machine [Sku] + [Instance]) plus the config sidecar.
+const int librarySchemaVersion = 2;
 
 /// The `onVersionChanged` handler passed to sembast's `openDatabase`.
 ///
@@ -71,8 +77,39 @@ libraryMigrations = (Database db, int oldVersion, int newVersion) async {
         // Baseline: record that the schema now lives at v1. All stores are
         // created lazily by sembast on first use, so there is no DDL to run.
         await schemaStore.record('version').put(db, {'version': 1});
+      case 2:
+        // Machines moved off the single `devices` blob store onto the shared
+        // catalog stores (machine Sku in `skuStore`, machine Instance in
+        // `instanceStore`) plus the config sidecar (`machineConfigStore`).
+        // Split every legacy device row, then drop the blob rows so there is
+        // no stale second copy of a machine.
+        await _splitLegacyDeviceRows(db);
+        await schemaStore.record('version').put(db, {'version': 2});
       default:
         throw StateError('No migration defined for schema version $version');
     }
   }
 };
+
+/// v2 migration: rewrites every row of the legacy `devices` store into the
+/// catalog + sidecar stores and then clears the legacy store.
+///
+/// Runs over the raw [Database] (not a scoped client) because it executes
+/// during open, before any repository is bound. Idempotent enough to be safe:
+/// it only acts when legacy rows exist, and clears them once split.
+Future<void> _splitLegacyDeviceRows(Database db) async {
+  final records = await deviceStore.find(db);
+  if (records.isEmpty) return;
+  for (final record in records) {
+    final device = Device.fromJson(record.value);
+    final sku = device.machineSku;
+    if (sku != null) {
+      await skuStore.record(sku.meta.id).put(db, sku.toJson());
+    }
+    await instanceStore.record(device.meta.id).put(db, device.toInstance().toJson());
+    await machineConfigStore
+        .record(device.meta.id)
+        .put(db, device.config.toJson());
+  }
+  await deviceStore.delete(db);
+}

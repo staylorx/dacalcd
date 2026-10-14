@@ -2,6 +2,7 @@ import 'package:sku_catalog/sku_catalog.dart' as cat;
 
 import '../catalog/dacal_catalog.dart';
 import 'hid_config.dart';
+import 'machine_config.dart';
 import 'serial_config.dart';
 
 /// A physical CD library machine — the catalog's machine [cat.Instance], not a
@@ -188,10 +189,63 @@ class Device extends cat.Instance {
   Map<String, dynamic> get traitAttributeValues =>
       {kSerialNumberTraitAttributeKey: serialNumber};
 
-  /// Serializes the machine as its catalog instance record plus the decal
-  /// connection config and (for round-trip) its machine [SKU]. The storage
-  /// adapter persists this whole blob today; re-pointing reads/writes onto the
-  /// catalog stores is the next migration slice.
+  /// This machine as its bare catalog [cat.Instance] — the identity half of a
+  /// machine, with no decal-side connection config. The storage adapter writes
+  /// this to the shared instance store; the machine [cat.Sku] goes to the SKU
+  /// store and the connection config to the sidecar (see [config]).
+  cat.Instance toInstance() => cat.Instance(
+    meta: meta,
+    skuId: skuId,
+    locateId: locateId,
+    name: name,
+    serialNumber: serialNumber,
+    imageIds: imageIds,
+    traitIds: traitIds,
+    attributeValues: attributeValues,
+    icon: icon,
+  );
+
+  /// The decal-side connection config for this machine — the sidecar value
+  /// keyed by [meta]'s id (see [MachineConfig]). Holds the transport wiring
+  /// sku_catalog's classification model deliberately does not.
+  MachineConfig get config => MachineConfig(
+    instanceId: meta.id,
+    hidConfig: hidConfig,
+    serialConfig: serialConfig,
+    demoMode: demoMode,
+  );
+
+  /// Builds a [Device] from its catalog parts — a machine [cat.Instance], its
+  /// machine [machineSku] and its sidecar [config]. Inverse of [toInstance]
+  /// (+ [config]); the storage adapter uses it to reassemble a machine that was
+  /// persisted across the catalog and sidecar stores.
+  factory Device.fromParts({
+    required cat.Instance instance,
+    cat.Sku? machineSku,
+    MachineConfig? config,
+  }) => Device(
+    meta: instance.meta,
+    skuId: instance.skuId,
+    locateId: instance.locateId,
+    name: instance.name,
+    serialNumber: instance.serialNumber,
+    imageIds: instance.imageIds,
+    traitIds: instance.traitIds,
+    attributeValues: instance.attributeValues,
+    icon: instance.icon,
+    machineSku: machineSku,
+    hidConfig: config?.hidConfig,
+    serialConfig: config?.serialConfig,
+    demoMode: config?.demoMode ?? false,
+  );
+
+  /// Serializes the machine as one blob — its catalog instance fields plus the
+  /// decal connection config and its embedded machine [SKU].
+  ///
+  /// The catalog-backed storage adapter no longer stores this blob: it writes
+  /// the instance, SKU and config to their own stores (see [toInstance] and
+  /// [config]). This single-blob form is kept for the legacy-record migration
+  /// (schema v2) and for value-level round-trip tests.
   @override
   Map<String, dynamic> toJson() {
     final json = super.toJson();

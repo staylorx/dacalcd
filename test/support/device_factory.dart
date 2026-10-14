@@ -36,7 +36,7 @@ Device buildDevice(
         attributeValues: {
           'capacity': capacity,
           'manufacturer': manufacturer,
-          if (model != null) 'model': model,
+          'model': ?model,
         },
       );
   return Device(

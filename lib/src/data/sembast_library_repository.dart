@@ -1,5 +1,6 @@
 import 'package:fpdart/fpdart.dart';
 import 'package:sembast/sembast.dart';
+import 'package:sku_catalog/sku_catalog.dart' as cat;
 
 import '../domain/domain.dart';
 import 'sembast_schema.dart';
@@ -7,11 +8,19 @@ import 'sembast_transaction_scope.dart';
 
 /// A sembast-backed [ILibraryRepository].
 ///
-/// Persists [Device]s and [Slot]s (a slot's embedded [Disc] rides along on the
-/// slot row) in two sembast string-keyed stores. Every public method returns
-/// an fpdart [TaskEither] and never throws. A genuine storage fault
-/// (a sembast / file-I/O exception) is converted at this boundary into a
-/// [StorageFailure] value via `TaskEither.tryCatch`.
+/// **Machines** are stored the catalog-backed way: a machine's identity lands
+/// in the shared sku_catalog stores — its machine [cat.Sku] in `skuStore` and
+/// its physical unit as a [cat.Instance] in `instanceStore` — while its typed
+/// connection config goes to the `machineConfigStore` sidecar keyed by the
+/// instance id ([MachineConfig]). This is the same storage the catalog
+/// repositories ([SembastSkuRepository], [SembastInstanceRepository]) read, so
+/// a machine written here is a first-class catalog record, not a private blob.
+///
+/// **Slots** (with their embedded [Disc] copy) and the disc catalog still ride
+/// in `slotStore`/`discStore`; re-pointing those onto the catalog stores is a
+/// later slice. Every public method returns an fpdart [TaskEither] and never
+/// throws: a genuine storage fault becomes a [StorageFailure] via
+/// `TaskEither.tryCatch`, and an absent record a [NotFoundFailure].
 ///
 /// A caller that wants a group of writes to be atomic passes a
 /// [SembastUnitOfWork] built on the **same** [SembastTransactionScope] as this
@@ -38,48 +47,71 @@ class SembastLibraryRepository implements ILibraryRepository {
   @override
   TaskEither<DecalFailure, List<Device>> fetchDevices() =>
       TaskEither.tryCatch(() async {
-        final records = await deviceStore.find(_client);
-        return records.map((r) => Device.fromJson(r.value)).toList();
+        final records = await instanceStore.find(_client);
+        final devices = <Device>[];
+        for (final record in records) {
+          final device = await _deviceFromInstanceRecord(record.value);
+          if (device != null) devices.add(device);
+        }
+        return devices;
       }, _storageError);
 
   @override
   TaskEither<DecalFailure, Device> fetchDeviceBySerialCode({
     required String serialCode,
   }) => TaskEither.tryCatch(() async {
-    final records = await deviceStore.find(
+    final records = await instanceStore.find(
       _client,
       finder: Finder(filter: Filter.equals('serial_number', serialCode)),
     );
-    if (records.isEmpty) {
-      throw _NotFound('Device with serial code "$serialCode" not found');
+    for (final record in records) {
+      final device = await _deviceFromInstanceRecord(record.value);
+      if (device != null) return device;
     }
-    return Device.fromJson(records.first.value);
+    throw _NotFound('Device with serial code "$serialCode" not found');
   }, _failureOrStorageError);
 
   @override
   TaskEither<DecalFailure, Device> fetchDeviceById({required String id}) =>
       TaskEither.tryCatch(() async {
-        final record = await deviceStore.record(id).get(_client);
+        final record = await instanceStore.record(id).get(_client);
         if (record == null) {
           throw _NotFound('Device "$id" not found');
         }
-        return Device.fromJson(record);
+        final device = await _deviceFromInstanceRecord(record);
+        if (device == null) {
+          throw _NotFound('Device "$id" not found');
+        }
+        return device;
       }, _failureOrStorageError);
 
   @override
   TaskEither<DecalFailure, Device> saveDevice({required Device device}) =>
       TaskEither.tryCatch(() async {
-        await deviceStore.record(device.meta.id).put(_client, device.toJson());
+        // Identity: the machine SKU and its physical instance go into the
+        // shared catalog stores; the typed connection config into the sidecar.
+        final sku = device.machineSku;
+        if (sku != null) {
+          await skuStore.record(sku.meta.id).put(_client, sku.toJson());
+        }
+        await instanceStore
+            .record(device.meta.id)
+            .put(_client, device.toInstance().toJson());
+        await machineConfigStore
+            .record(device.meta.id)
+            .put(_client, device.config.toJson());
         return device;
       }, _storageError);
 
   @override
   TaskEither<DecalFailure, void> deleteDevice({required String id}) =>
       TaskEither.tryCatch(() async {
-        final deleted = await deviceStore.record(id).delete(_client);
+        final deleted = await instanceStore.record(id).delete(_client);
         if (deleted == null) {
           throw _NotFound('Device "$id" not found');
         }
+        // Drop the machine's sidecar config too, so no orphan is left behind.
+        await machineConfigStore.record(id).delete(_client);
         // Cascade: remove every slot belonging to the deleted machine so it
         // leaves no orphaned records.
         final slots = await slotStore.find(
@@ -91,10 +123,29 @@ class SembastLibraryRepository implements ILibraryRepository {
         }
       }, _failureOrStorageError);
 
+  /// Reassembles a [Device] from a stored catalog instance record: reads the
+  /// machine [cat.Sku] it points at and its sidecar config, then joins them.
+  ///
+  /// Returns null when the record is not a machine instance (e.g. a disc
+  /// instance placed at a location), so callers skip it. Machine-ness is judged
+  /// by the referenced SKU carrying the `serializable` trait — falling back to a
+  /// non-empty instance serial number when the SKU row is absent.
+  Future<Device?> _deviceFromInstanceRecord(Map<String, dynamic> json) async {
+    final instance = cat.Instance.fromJson(json);
+    final skuJson = await skuStore.record(instance.skuId).get(_client);
+    final sku = skuJson == null ? null : cat.Sku.fromJson(skuJson);
+    if (!_isMachine(instance, sku)) return null;
+    final configJson =
+        await machineConfigStore.record(instance.meta.id).get(_client);
+    final config =
+        configJson == null ? null : MachineConfig.fromJson(configJson);
+    return Device.fromParts(instance: instance, machineSku: sku, config: config);
+  }
+
   @override
   TaskEither<DecalFailure, List<Slot>> listSlots({required String deviceId}) =>
       TaskEither.tryCatch(() async {
-        final device = await deviceStore.record(deviceId).get(_client);
+        final device = await instanceStore.record(deviceId).get(_client);
         if (device == null) {
           throw _NotFound('Device "$deviceId" not found');
         }
@@ -205,3 +256,15 @@ DecalFailure _failureOrStorageError(Object error, StackTrace stackTrace) {
 /// Maps any storage exception to a [StorageFailure].
 DecalFailure _storageError(Object error, StackTrace stackTrace) =>
     StorageFailure('Storage operation failed: $error');
+
+/// Whether a stored instance record is a CD library **machine** rather than
+/// some other instance (e.g. a disc placed in a slot).
+///
+/// A machine's SKU carries the `serializable` trait (every machine has a serial
+/// number, captured on that trait). When the SKU row is absent the instance's
+/// own non-empty serial number is the fallback signal.
+bool _isMachine(cat.Instance instance, cat.Sku? sku) {
+  if (sku != null) return sku.traitIds.contains(kDcSerializableTrait.meta.id);
+  final serial = instance.serialNumber;
+  return serial != null && serial.isNotEmpty;
+}
