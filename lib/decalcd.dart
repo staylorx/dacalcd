@@ -20,9 +20,11 @@
 /// Alongside the communication layer, this package carries the Decal CD
 /// library domain: a [Device] (the carousel, itself a catalog SKU with
 /// serial codes unique per machine), its [Slot]s, and the [Disc]s (catalog
-/// CD/DVD SKUs) that occupy them. Operations are reached through the use
-/// cases in `src/usecases` — list devices, get a device by serial code, list
-/// slots, get slot status, insert/remove a disc, and locate a disc.
+/// CD/DVD SKUs) that occupy them. Every action the outer rings perform — the
+/// GUI, the TUI and the CLI alike — goes through the use cases in
+/// `src/usecases` (list devices, get a device by serial code, list slots, get
+/// slot status, insert/remove a disc, locate a disc, load the list-view
+/// snapshot); no ring talks to a repository or a parallel service directly.
 ///
 /// The domain presents FP-style tuples: every repository method and use case
 /// call returns a fpdart `TaskEither<DecalFailure, T>`; call `.run()` for a
@@ -34,7 +36,6 @@ export 'src/command.dart';
 export 'src/config/legacy_serial_config_migration.dart';
 export 'src/config/serial_config_service.dart';
 export 'src/dacal_client.dart';
-export 'src/library_service.dart';
 export 'src/dacal_codec.dart';
 export 'src/dacal_failure.dart';
 export 'src/dacal_frame_reader.dart';

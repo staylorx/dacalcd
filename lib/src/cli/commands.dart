@@ -51,7 +51,7 @@ class ListDevicesCommand extends Command<int> {
 
   @override
   Future<int> run() => runTask(
-    _deps.service.listDevices(),
+    ListDevices(_deps.library).call(),
     _deps,
     onOk: (devices) {
       if (devices.isEmpty) {

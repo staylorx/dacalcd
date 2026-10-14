@@ -5,7 +5,6 @@ import 'package:fpdart/fpdart.dart';
 
 import '../dacal_client.dart';
 import '../domain/domain.dart';
-import '../library_service.dart';
 import '../machine_detector.dart';
 import '../usecases/usecases.dart';
 
@@ -34,11 +33,6 @@ class DecalCliDeps {
   /// carousel commands then report it as unavailable instead of crashing.
   final DacalClient? carousel;
 
-  /// Shared read-side service both the CLI and the TUI call to fetch the same
-  /// library data. Defaults to a service over [library] so callers that only
-  /// supply a repository keep working unchanged.
-  final LibraryService service;
-
   /// Where normal output goes.
   final LineWriter out;
 
@@ -46,16 +40,17 @@ class DecalCliDeps {
   final LineWriter err;
 
   /// Creates the dependency bundle.
+  ///
+  /// The bundle carries the repository and the carousel client, nothing more:
+  /// each command builds the use case it needs over them, so every action the
+  /// CLI performs is a use case (see `src/usecases`).
   DecalCliDeps({
     required this.library,
     this.unitOfWork,
     this.carousel,
-    LibraryService? service,
     LineWriter? out,
     LineWriter? err,
-  }) : service =
-           service ?? LibraryService(repository: library, carousel: carousel),
-       out = out ?? print,
+  }) : out = out ?? print,
        err = err ?? _defaultErr;
 
   static void _defaultErr(String line) => print('decal: $line');

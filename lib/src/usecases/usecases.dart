@@ -22,6 +22,7 @@ export 'insert_disc.dart';
 export 'list_devices.dart';
 export 'list_discs.dart';
 export 'list_slots_for_device.dart';
+export 'load_library_snapshot.dart';
 export 'locate_disc.dart';
 export 'new_meta.dart';
 export 'remove_disc.dart';
