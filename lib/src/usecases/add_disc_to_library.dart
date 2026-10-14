@@ -1,4 +1,5 @@
 import 'package:fpdart/fpdart.dart';
+import 'package:sku_catalog/sku_catalog.dart' as cat;
 
 import '../domain/domain.dart';
 import 'id_generator.dart';
@@ -31,11 +32,16 @@ class AddDiscToLibrary {
   final IdGenerator? _idGenerator;
 
   /// Executes the use case, returning the newly catalogued [Disc].
+  ///
+  /// [mediaTrait] is the disc's media kind ([kDcCdTrait] by default,
+  /// [kDcDvdTrait] for a DVD); it classifies the synthesised media SKU the
+  /// disc is an instance of.
   TaskEither<DecalFailure, Disc> call({
     required String skuId,
     String? label,
     String? serialNumber,
     String notes = '',
+    cat.Trait mediaTrait = kDcCdTrait,
   }) {
     if (skuId.trim().isEmpty) {
       return TaskEither.left(
@@ -52,10 +58,15 @@ class AddDiscToLibrary {
         );
       }
       final disc = Disc(
-        meta: newMeta(notes: notes, idGenerator: _idGenerator),
+        meta: newMeta(notes: notes, idGenerator: _idGenerator).asCatalog,
         skuId: skuId,
-        label: label,
+        name: label ?? '',
         serialNumber: serialNumber,
+        discSku: dacalDiscSku(
+          skuId: skuId,
+          mediaTrait: mediaTrait,
+          modelNumber: label ?? skuId,
+        ),
       );
       return _repository.saveDisc(disc: disc);
     });

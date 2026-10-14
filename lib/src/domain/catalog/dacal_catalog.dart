@@ -122,6 +122,17 @@ const Map<String, cat.Trait> kCanonicalTraits = {
   'slottable': kDcSlottableTrait,
 };
 
+/// Registry of every canonical trait by id, used to resolve the trait ids a
+/// catalog SKU carries back to their canonical [cat.Trait] (see
+/// `Disc.traits`).
+const Map<String, cat.Trait> kCanonicalTraitsById = {
+  'dc:trait:serializable': kDcSerializableTrait,
+  'dc:trait:hid': kDcHidTrait,
+  'dc:trait:cd': kDcCdTrait,
+  'dc:trait:dvd': kDcDvdTrait,
+  'dc:trait:slottable': kDcSlottableTrait,
+};
+
 /// A CD library machine (e.g. a Dacal `DC-300`) as a catalog SKU — the *model*
 /// class. It carries the `hid` + `serializable` traits as its classification
 /// and a `capacity` trait attribute, exactly as the vendor catalog defines it.
@@ -164,6 +175,23 @@ cat.Sku discSku({
       modelNumber: modelNumber,
       traitIds: [mediaTrait.meta.id, kDcSlottableTrait.meta.id],
     );
+
+/// A disc SKU referenced by id only — the media class [skuId] with its
+/// [mediaTrait] kind.
+///
+/// Used when a disc is catalogued from a sku id before the media SKU row
+/// exists in the catalog (see `AddDiscToLibrary`): the SKU is synthesised so
+/// the disc's media classification is carried on a SKU — the catalog's home
+/// for classification — rather than duplicated on the disc instance.
+cat.Sku dacalDiscSku({
+  required String skuId,
+  required cat.Trait mediaTrait,
+  required String modelNumber,
+}) => discSku(
+  meta: cat.Meta(id: skuId, notes: '', createdAt: '', updatedAt: ''),
+  mediaTrait: mediaTrait,
+  modelNumber: modelNumber,
+);
 
 /// A physical disc in the library — an [Instance] of a disc [Sku] (see
 /// [discSku]).

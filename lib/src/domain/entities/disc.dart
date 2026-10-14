@@ -1,82 +1,187 @@
-import 'package:equatable/equatable.dart';
 import 'package:sku_catalog/sku_catalog.dart' as cat;
 
 import '../catalog/dacal_catalog.dart';
-import 'meta.dart';
 
-/// A CD/DVD held by the library — a catalog [Sku].
+/// A physical CD/DVD held by the library — the catalog's disc [cat.Instance],
+/// not a parallel model.
 ///
-/// A disc is a SKU (the CD or DVD as a product model). The correlation between
-/// a carousel slot and the disc it holds is expressed by a [Slot] referencing
-/// a [Disc], and the library leans on the catalog's SkuAssociation links to
-/// relate discs to the media they carry.
-class Disc extends Equatable {
-  /// Creation metadata.
-  final Meta meta;
-
-  /// Id of the catalog [Sku] this disc instantiates.
-  ///
-  /// For a CD carousel, the discs are CD/DVD SKUs — distinct from the carousel
-  /// SKU itself.
-  final String skuId;
-
-  /// Optional physical label / barcode printed on the media.
-  final String? label;
-
-  /// Optional disc-specific serial number.
-  final String? serialNumber;
-
-  /// Media-kind traits this disc carries: a CD disc is [kDcCdTrait], a DVD is
-  /// [kDcDvdTrait]. The media kind of a disc is expressed as a trait, mirroring
-  /// how a machine carries `serializable`/`hid`.
-  final Set<cat.Trait> traits;
-
-  /// Creates a [Disc].
-  const Disc({
-    required this.meta,
-    required this.skuId,
-    this.label,
-    this.serialNumber,
-    this.traits = const {},
+/// decalcd's old `Disc` re-declared its identity (`skuId`, `label`,
+/// `serialNumber`, `traits`) alongside the shared `sku_catalog` model — facts
+/// that belong on the media *SKU* and the disc *instance*. Under the
+/// catalog-backed model each lives where the catalog puts it:
+///
+/// * the media class (a CD "Album X" — its `cd`/`dvd` classification, its
+///   `slottable` classification and its model number) is a disc [cat.Sku]
+///   (see [discSku]);
+/// * the individual article — this disc — is a [cat.Instance] of that SKU.
+///
+/// Slotting a disc **is** that reification: a disc that occupies a slot is an
+/// instance carrying its `slot_number` attribute value (see
+/// [kSlotNumberTraitAttributeKey]) — placement is a value on the instance, so
+/// the disc has to be an instance in order to take one.
+///
+/// This class **is** that instance and adds only the reference to its media
+/// [discSku], so [traits] and the media kind read as projections of the SKU
+/// rather than stored duplicates.
+class Disc extends cat.Instance {
+  /// Creates a [Disc] — a disc [cat.Instance] of [discSku].
+  Disc({
+    required super.meta,
+    required super.skuId,
+    super.locateId,
+    required super.name,
+    super.skuModelNumber,
+    super.serialNumber,
+    super.imageIds = const [],
+    super.traitIds = const [],
+    super.attributeValues = const {},
+    super.icon,
+    this.discSku,
   });
 
-  /// Trait-attribute values keyed by attribute key. Empty today — a disc's
-  /// media kind is a trait, not a trait attribute value — present for symmetry
-  /// with [Device] so trait-driven attributes can be added later.
-  Map<String, dynamic> get traitAttributeValues => const {};
+  /// The media SKU this disc instantiates, when loaded. The media kind and
+  /// classification below project from it — never stored duplicates.
+  final cat.Sku? discSku;
 
-  /// Converts to JSON with snake_case keys.
-  Map<String, dynamic> toJson() => {
-    ...meta.toJson(),
-    'sku_id': skuId,
-    'label': label,
-    'serial_number': serialNumber,
-    'traits': [for (final t in traits) t.name],
+  /// The physical label / barcode printed on the media — the instance's own
+  /// display name (null when the disc is unnamed).
+  String? get label => name.isEmpty ? null : name;
+
+  /// The slot (`1..capacity`) this disc currently occupies — the value of its
+  /// `slot_number` attribute (see [kSlotNumberTraitAttributeKey]). Null when
+  /// the disc is not slotted.
+  int? get slotNumber =>
+      (attributeValues[kSlotNumberTraitAttributeKey] as num?)?.toInt();
+
+  /// Whether this disc currently occupies a slot.
+  bool get isSlotted => slotNumber != null;
+
+  /// The media-kind + classification traits this disc carries, projected from
+  /// [discSku]: a CD disc is [kDcCdTrait], a DVD is [kDcDvdTrait], and every
+  /// disc SKU is [kDcSlottableTrait].
+  Set<cat.Trait> get traits => {
+    for (final id in discSku?.traitIds ?? const <String>[])
+      ?kCanonicalTraitsById[id],
   };
 
-  /// Creates a [Disc] from snake_case JSON.
-  factory Disc.fromJson(Map<String, dynamic> json) => Disc(
-    meta: Meta.fromJson(json),
-    skuId: json['sku_id'] as String? ?? '',
-    label: json['label'] as String?,
-    serialNumber: json['serial_number'] as String?,
-    traits: (json['traits'] as List<dynamic>?)
-            ?.map((n) => _resolveTrait(n.toString()))
-            .toSet() ??
-        const {},
+  /// Returns a copy of this disc placed in [slotNumber] — or, when
+  /// [slotNumber] is null, cleared of its placement. The instance's identity
+  /// ([meta], [name], [serialNumber]) is untouched: slotting is a value on the
+  /// disc, not a different disc.
+  Disc withSlot(int? slotNumber) {
+    // The spread carries the existing values, so clearing has to *remove* the
+    // key rather than omit a fresh entry.
+    final values = {...attributeValues};
+    if (slotNumber == null) {
+      values.remove(kSlotNumberTraitAttributeKey);
+    } else {
+      values[kSlotNumberTraitAttributeKey] = slotNumber;
+    }
+    return Disc(
+      meta: meta,
+      skuId: skuId,
+      locateId: locateId,
+      name: name,
+      skuModelNumber: skuModelNumber,
+      serialNumber: serialNumber,
+      imageIds: imageIds,
+      traitIds: traitIds,
+      attributeValues: values,
+      icon: icon,
+      discSku: discSku,
+    );
+  }
+
+  /// This disc as its bare catalog [cat.Instance] — the identity half, with no
+  /// decal-side additions. The storage adapter writes this to the shared
+  /// instance store alongside the machine instances (see
+  /// `SembastLibraryRepository`).
+  cat.Instance toInstance() => cat.Instance(
+    meta: meta,
+    skuId: skuId,
+    locateId: locateId,
+    name: name,
+    skuModelNumber: skuModelNumber,
+    serialNumber: serialNumber,
+    imageIds: imageIds,
+    traitIds: traitIds,
+    attributeValues: attributeValues,
+    icon: icon,
   );
 
+  /// Builds a [Disc] from its catalog parts — a disc [cat.Instance] and its
+  /// media [cat.Sku]. Inverse of [toInstance]; the storage adapter uses it to
+  /// reassemble a disc that was persisted across the catalog stores.
+  factory Disc.fromParts({required cat.Instance instance, cat.Sku? discSku}) =>
+      Disc(
+        meta: instance.meta,
+        skuId: instance.skuId,
+        locateId: instance.locateId,
+        name: instance.name,
+        skuModelNumber: instance.skuModelNumber,
+        serialNumber: instance.serialNumber,
+        imageIds: instance.imageIds,
+        traitIds: instance.traitIds,
+        attributeValues: instance.attributeValues,
+        icon: instance.icon,
+        discSku: discSku,
+      );
+
+  /// Serializes the disc as one blob — its catalog instance fields plus its
+  /// embedded media [discSku].
+  ///
+  /// The catalog-backed storage adapter writes the instance and the SKU to
+  /// their own stores; this single-blob form is kept for the legacy-record
+  /// migration and for value-level round-trip tests.
   @override
-  List<Object?> get props => [meta, skuId, label, serialNumber, traits];
+  Map<String, dynamic> toJson() {
+    final json = super.toJson();
+    if (discSku != null) json['disc_sku'] = discSku!.toJson();
+    return json;
+  }
+
+  /// Creates a [Disc] from a snake_case record — the catalog instance fields
+  /// via [cat.Instance.fromJson] plus an optional embedded media [discSku].
+  ///
+  /// A legacy blob that predates the catalog split (no `disc_sku`) is
+  /// backfilled: its old `label` becomes the instance name and its old `traits`
+  /// names resolve to a synthesised media SKU, so classification still lands on
+  /// a SKU rather than on the instance.
+  factory Disc.fromJson(Map<String, dynamic> json) {
+    var instance = cat.Instance.fromJson(json);
+
+    // Pre-catalog blobs stored the printable label under `label`.
+    final legacyLabel = json['label'] as String?;
+    if (instance.name.isEmpty && (legacyLabel?.isNotEmpty ?? false)) {
+      instance = instance.copyWith(name: legacyLabel);
+    }
+
+    cat.Sku? sku;
+    final skuJson = json['disc_sku'];
+    if (skuJson is Map<String, dynamic> && skuJson.isNotEmpty) {
+      sku = cat.Sku.fromJson(skuJson);
+    } else if (instance.skuId.isNotEmpty) {
+      final names =
+          (json['traits'] as List<dynamic>?)
+              ?.map((n) => n.toString())
+              .where(kCanonicalTraits.containsKey)
+              .toSet() ??
+          const <String>{};
+      final media = names.contains('dvd')
+          ? kDcDvdTrait
+          : (names.contains('cd') ? kDcCdTrait : null);
+      if (media != null) {
+        sku = dacalDiscSku(
+          skuId: instance.skuId,
+          mediaTrait: media,
+          modelNumber: instance.name.isEmpty ? instance.skuId : instance.name,
+        );
+      }
+    }
+
+    return Disc.fromParts(instance: instance, discSku: sku);
+  }
+
+  @override
+  List<Object?> get props => [...super.props, discSku];
 }
-
-/// Resolves a persisted trait name to its canonical [cat.Trait], falling back
-/// to a generic [cat.Trait] when the name is not one of the known
-/// classifications.
-cat.Trait _resolveTrait(String name) =>
-    kCanonicalTraits[name] ??
-    cat.Trait(
-      meta: cat.Meta(id: 'trait:$name', notes: '', createdAt: '', updatedAt: ''),
-      name: name,
-    );
-

@@ -4,6 +4,7 @@ import 'package:test/test.dart';
 
 import 'support/memory_backends.dart';
 import 'support/device_factory.dart';
+import 'support/disc_factory.dart';
 
 void main() {
   Meta meta(String id) => Meta(
@@ -17,7 +18,7 @@ void main() {
       buildDevice(id, serial: serial, capacity: capacity);
 
   Disc disc(String id, {String skuId = 'cd-sku-1'}) =>
-      Disc(meta: meta(id), skuId: skuId);
+      buildDisc(id, skuId: skuId);
 
   /// Seeds a device plus empty slots 1..count into [r].
   void seedDevice(MemoryLibraryRepository r, String id, int count) {
@@ -498,6 +499,8 @@ void main() {
       final slot = result.getOrElse((_) => fail('expected Right'));
       slot.isOccupied.should.be(true);
       slot.disc?.meta.id.should.be('d1');
+      // Slotting reifies the disc: the placed instance carries its slot number.
+      slot.disc?.slotNumber.should.be(2);
     });
 
     test('Then it reports an empty slot', () async {

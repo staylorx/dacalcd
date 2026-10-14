@@ -6,6 +6,7 @@ import 'package:sembast/sembast_memory.dart';
 import 'package:test/test.dart';
 
 import 'support/device_factory.dart';
+import 'support/disc_factory.dart';
 import 'support/shared_contract_suite.dart';
 
 var _dbSeq = 0;
@@ -103,7 +104,7 @@ void main() {
           await seedDevice('dev-a');
           final uow = SembastUnitOfWork(database: db, scope: scope);
           final insert = InsertDisc(repository: repo, unitOfWork: uow);
-          final disc = Disc(meta: meta('d1'), skuId: 'cd-sku-1');
+          final disc = buildDisc('d1');
 
           final result = await insert(
             disc: disc,
@@ -129,13 +130,13 @@ void main() {
       test('Then a disc move clears the old slot atomically', () async {
         await seedDevice(
           'dev-a',
-          occupied: {1: Disc(meta: meta('d1'), skuId: 'cd-sku-1')},
+          occupied: {1: buildDisc('d1')},
         );
         final uow = SembastUnitOfWork(database: db, scope: scope);
         final insert = InsertDisc(repository: repo, unitOfWork: uow);
 
         final result = await insert(
-          disc: Disc(meta: meta('d1'), skuId: 'cd-sku-1'),
+          disc: buildDisc('d1'),
           deviceId: 'dev-a',
           slotNumber: 3,
         ).run();
@@ -174,7 +175,7 @@ void main() {
                       meta: meta('dev-a-slot-1'),
                       deviceId: 'dev-a',
                       slotNumber: 1,
-                      disc: Disc(meta: meta('d1'), skuId: 'cd-sku-1'),
+                      disc: buildDisc('d1'),
                     ),
                   )
                   .run();
@@ -214,7 +215,7 @@ void main() {
                     meta: meta('dev-a-slot-1'),
                     deviceId: 'dev-a',
                     slotNumber: 1,
-                    disc: Disc(meta: meta('d1'), skuId: 'cd-sku-1'),
+                    disc: buildDisc('d1'),
                   ),
                 )
                 .run();

@@ -62,7 +62,7 @@ class InsertDisc {
                   : _repository.updateSlot(slot: existing.single.empty());
 
               final fillNew = _repository.updateSlot(
-                slot: s.copyWith(disc: disc),
+                slot: s.copyWith(disc: disc.withSlot(slotNumber)),
               );
 
               return TaskEither<DecalFailure, Slot>(

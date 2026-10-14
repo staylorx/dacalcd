@@ -221,7 +221,7 @@ class SembastLibraryRepository implements ILibraryRepository {
           _client,
           finder: Finder(sortOrders: [
             SortOrder('sku_id'),
-            SortOrder('label'),
+            SortOrder('name'),
           ]),
         );
         return records.map((r) => Disc.fromJson(r.value)).toList();

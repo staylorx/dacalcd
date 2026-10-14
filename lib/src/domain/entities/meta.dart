@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:sku_catalog/sku_catalog.dart' as cat;
 
 /// Immutable identity + timestamp record carried by every persistent entity.
 class Meta extends Equatable {
@@ -41,4 +42,20 @@ class Meta extends Equatable {
 
   @override
   List<Object?> get props => [id, notes, createdAt, updatedAt];
+}
+
+/// The boundary between decalcd's own identity record and the catalog's.
+///
+/// Catalog entities ([cat.Instance], [cat.Sku]) carry `cat.Meta`; decalcd's
+/// own entities ([Slot], ...) carry this one. The two meet wherever a use case
+/// touches both — most visibly when a [Disc] (now a catalog instance) is built
+/// alongside decalcd-side records.
+extension CatalogMeta on Meta {
+  /// This identity as the catalog's [cat.Meta].
+  cat.Meta get asCatalog => cat.Meta(
+    id: id,
+    notes: notes,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+  );
 }

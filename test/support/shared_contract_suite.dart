@@ -3,6 +3,7 @@ import 'package:shouldly/shouldly.dart';
 import 'package:test/test.dart';
 
 import 'device_factory.dart';
+import 'disc_factory.dart';
 
 /// The contract suite every `ILibraryRepository` adapter must pass.
 ///
@@ -39,7 +40,7 @@ void sharedRepositoryContractSuite({
     model: model,
   );
 
-  Disc disc(String id) => Disc(meta: meta(id), skuId: 'cd-sku-1');
+  Disc disc(String id) => buildDisc(id);
 
   /// Seeds a device plus empty slots 1..count into [r].
   Future<void> seedDevice(ILibraryRepository r, String id, int count) async {
@@ -390,7 +391,7 @@ void sharedRepositoryContractSuite({
 
     test('Then saveDisc catalogues a disc and fetchDisc returns it', () async {
       final saved = await repo
-          .saveDisc(disc: Disc(meta: meta('disc-a'), skuId: 'cd-sku-1'))
+          .saveDisc(disc: buildDisc('disc-a', skuId: 'cd-sku-1'))
           .run();
       saved.isRight().should.be(true);
 
@@ -404,14 +405,14 @@ void sharedRepositoryContractSuite({
 
     test('Then saveDisc over an existing id updates the disc (upsert)', () async {
       await repo
-          .saveDisc(disc: Disc(meta: meta('disc-a'), skuId: 'cd-sku-1'))
+          .saveDisc(disc: buildDisc('disc-a', skuId: 'cd-sku-1'))
           .run();
       await repo
           .saveDisc(
-            disc: Disc(
-              meta: meta('disc-a'),
+            disc: buildDisc(
+              'disc-a',
               skuId: 'cd-sku-2',
-              label: 'A',
+              name: 'A',
               serialNumber: 'SN-1',
             ),
           )
@@ -435,10 +436,10 @@ void sharedRepositoryContractSuite({
 
     test('Then listDiscs returns the catalogue in sku-id order', () async {
       await repo
-          .saveDisc(disc: Disc(meta: meta('disc-b'), skuId: 'cd-sku-9'))
+          .saveDisc(disc: buildDisc('disc-b', skuId: 'cd-sku-9'))
           .run();
       await repo
-          .saveDisc(disc: Disc(meta: meta('disc-a'), skuId: 'cd-sku-1'))
+          .saveDisc(disc: buildDisc('disc-a', skuId: 'cd-sku-1'))
           .run();
 
       final result = await repo.listDiscs().run();
@@ -451,7 +452,7 @@ void sharedRepositoryContractSuite({
 
     test('Then deleteDisc removes a catalogue disc', () async {
       await repo
-          .saveDisc(disc: Disc(meta: meta('disc-a'), skuId: 'cd-sku-1'))
+          .saveDisc(disc: buildDisc('disc-a', skuId: 'cd-sku-1'))
           .run();
       final result = await repo.deleteDisc(discId: 'disc-a').run();
       result.isRight().should.be(true);

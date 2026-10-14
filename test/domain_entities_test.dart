@@ -3,6 +3,7 @@ import 'package:shouldly/shouldly.dart';
 import 'package:test/test.dart';
 
 import 'support/device_factory.dart';
+import 'support/disc_factory.dart';
 
 void main() {
   Meta meta(String id) => Meta(
@@ -87,16 +88,25 @@ void main() {
 
   group('Given a Disc', () {
     test('Then it round-trips its skuId through JSON', () {
-      final disc = Disc(
-        meta: meta('disc-1'),
+      final disc = buildDisc(
+        'disc-1',
         skuId: 'cd-sku-1',
-        label: 'Label',
+        name: 'Label',
         serialNumber: 'SN-1',
       );
       final back = Disc.fromJson(disc.toJson());
       back.skuId.should.be('cd-sku-1');
       back.label.should.be('Label');
       back.serialNumber.should.be('SN-1');
+    });
+
+    test('Then slotting it records the slot as an attribute value', () {
+      final disc = buildDisc('disc-1', slotNumber: 4);
+      disc.slotNumber.should.be(4);
+      disc.isSlotted.should.be(true);
+      Disc.fromJson(disc.toJson()).slotNumber.should.be(4);
+
+      disc.withSlot(null).isSlotted.should.be(false);
     });
   });
 
@@ -110,7 +120,7 @@ void main() {
         meta: meta('s2'),
         deviceId: 'dev-1',
         slotNumber: 2,
-        disc: Disc(meta: meta('d1'), skuId: 'cd-sku-1'),
+        disc: buildDisc('d1'),
       );
       full.isOccupied.should.be(true);
       full.isEmpty.should.be(false);
@@ -118,7 +128,7 @@ void main() {
 
     test('Then empty() clears the disc and copyWith sets it', () {
       final empty = Slot(meta: meta('s1'), deviceId: 'dev-1', slotNumber: 1);
-      final disc = Disc(meta: meta('d1'), skuId: 'cd-sku-1');
+      final disc = buildDisc('d1');
       final full = empty.copyWith(disc: disc);
       full.isOccupied.should.be(true);
       full.disc?.meta.id.should.be('d1');

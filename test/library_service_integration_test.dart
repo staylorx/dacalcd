@@ -13,6 +13,7 @@ import 'package:shouldly/shouldly.dart';
 import 'package:test/test.dart';
 
 import 'support/device_factory.dart';
+import 'support/disc_factory.dart';
 import 'support/memory_library_repository.dart';
 
 Meta _meta(String id) => Meta(
@@ -50,7 +51,7 @@ Future<MemoryLibraryRepository> _seed() async {
           meta: _meta('dev-a-slot-2'),
           deviceId: 'dev-a',
           slotNumber: 2,
-          disc: Disc(meta: _meta('disc-2'), skuId: 'cd-sku-9'),
+          disc: buildDisc('disc-2', skuId: 'cd-sku-9'),
         ),
       )
       .run();

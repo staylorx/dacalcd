@@ -63,10 +63,12 @@ class ChangeDiscInLibrary {
             notes: current.meta.notes,
             createdAt: current.meta.createdAt,
             updatedAt: _clock().toUtc().toIso8601String(),
-          ),
+          ).asCatalog,
           skuId: newSku,
-          label: label ?? current.label,
+          name: label ?? current.label ?? '',
           serialNumber: serialNumber ?? current.serialNumber,
+          attributeValues: current.attributeValues,
+          discSku: current.discSku,
         );
         return _persist(updated);
       });

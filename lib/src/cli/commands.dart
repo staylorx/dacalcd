@@ -343,7 +343,16 @@ class InsertDiscCommand extends Command<int> {
     if (slot == null) return Future.value(1);
     final skuId = rest[2];
 
-    final disc = Disc(meta: newMeta(), skuId: skuId);
+    final disc = Disc(
+      meta: newMeta().asCatalog,
+      skuId: skuId,
+      name: '',
+      discSku: dacalDiscSku(
+        skuId: skuId,
+        mediaTrait: kDcCdTrait,
+        modelNumber: skuId,
+      ),
+    );
     final insert = InsertDisc(
       repository: _deps.library,
       unitOfWork: _deps.unitOfWork,
