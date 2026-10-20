@@ -102,7 +102,7 @@ void sharedRepositoryContractSuite({
         d.model.should.be('CD Library II');
         d.capacity.should.be(300);
         d.name.should.be('Rack 1');
-        d.traits.map((t) => t.name).should.contain('serializable');
+        d.traits.map((t) => t.name).should.contain(kDcSerializableTrait.name);
         (d.traitAttributeValues['serial_number'] as String).should.be('9999');
       },
     );

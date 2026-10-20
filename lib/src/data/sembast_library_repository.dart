@@ -73,7 +73,12 @@ class SembastLibraryRepository implements ILibraryRepository {
   }) => TaskEither.tryCatch(() async {
     final records = await instanceStore.find(
       _client,
-      finder: Finder(filter: Filter.equals('serial_number', serialCode)),
+      finder: Finder(
+        filter: Filter.equals(
+          'attribute_values.$kSerialNumberTraitAttributeKey',
+          serialCode,
+        ),
+      ),
     );
     for (final record in records) {
       final device = await _deviceFromInstance(record.value);

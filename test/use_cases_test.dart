@@ -125,7 +125,7 @@ void main() {
         d.name.should.be('Main Rack');
         // Serial is stored under the 'serializable' trait's 'serial_number'
         // attribute and is retrievable from the read side.
-        d.traits.map((t) => t.name).should.contain('serializable');
+        d.traits.map((t) => t.name).should.contain(kDcSerializableTrait.name);
         (d.traitAttributeValues['serial_number'] as String).should.be('67808');
 
         final fetched = await GetDeviceBySerialCode(repo)(

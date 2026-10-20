@@ -44,7 +44,9 @@ void main() {
         capacity: 150,
       );
 
-      device.traits.map((t) => t.name).should.contain('serializable');
+      device.traits.map((t) => t.name).should.contain(
+        kDcSerializableTrait.name,
+      );
       (device.traitAttributeValues['serial_number'] as String).should
           .be('67808');
       (device.traitAttributeValues[kSerialNumberTraitAttributeKey] as String)
@@ -55,6 +57,11 @@ void main() {
           .map((a) => a.key)
           .should
           .contain('serial_number');
+      // The pair is sku_catalog's own (SerializableTrait.define): a
+      // *unique* string attribute of a sku-scoped classification.
+      kDcSerializableTrait.scope.should.be([TraitScope.sku]);
+      kDcSerialNumberTraitAttribute.isUnique.should.beTrue();
+      kDcSerialNumberTraitAttribute.dataType.should.be(DataType.string);
     });
 
     test('Then multiple machines coexist with distinct serials and models',
@@ -80,8 +87,8 @@ void main() {
       machines.map((m) => m.serialNumber).should.be(['67808', '9999']);
       machines.map((m) => m.model).should.be(['CD Library II', 'CD Library III']);
       machines.expand((m) => m.traits).map((t) => t.name).should.be([
-        'serializable',
-        'serializable',
+        kDcSerializableTrait.name,
+        kDcSerializableTrait.name,
       ]);
     });
   });

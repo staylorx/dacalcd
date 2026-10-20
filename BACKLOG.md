@@ -10,6 +10,22 @@ section.
 
 ## Open
 
+- [ ] **The `serial_number` uniqueness the definition declares is enforced on
+      machines only.** `kDcSerialNumberTraitAttribute` is `isUnique` (it comes
+      from sku_catalog's `SerializableTrait`), and `AddDevice`/`UpdateDevice`
+      refuse a duplicate machine serial — but the disc write paths
+      (`AddDiscToLibrary`, `ChangeDiscInLibrary`) do not, so two disc copies can
+      hold the same serial while the definition claims otherwise. Decide one way
+      and record it: enforce it on the disc paths too (its own rule use case, the
+      shape of `AssertUniqueInstanceName`), or state that the flag is descriptive
+      here and say why.
+
+- [ ] **`melos run format` is red at HEAD.** Dart 3.13's formatter (tall style)
+      reflows ~39 files this tree was not formatted with, none of them touched by
+      a given change — so the format gate fails for everybody and a feature diff
+      must not carry the reflow. Land the repo-wide reformat as its own commit
+      (touching nothing else), or pin the gate, and keep it out of feature work.
+
 - [ ] **Finish multi-machine serial: drop the residual single-machine
       assumptions.** The per-machine connection path is done (`Device.serialConfig`,
       per-machine list/fetch/select/auto-detect, no shared app-wide port), but core

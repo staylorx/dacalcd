@@ -36,6 +36,17 @@ class SembastSkuRepository implements cat.ISkuRepository {
       }, _storageError);
 
   @override
+  TaskEither<cat.DomainFailure, List<cat.Sku>> fetchByManufacturer({
+    required String manufacturerId,
+  }) => TaskEither.tryCatch(() async {
+    final records = await skuStore.find(
+      _client,
+      finder: Finder(filter: Filter.equals('manufacturer_id', manufacturerId)),
+    );
+    return records.map((r) => cat.Sku.fromJson(r.value)).toList();
+  }, _storageError);
+
+  @override
   TaskEither<cat.DomainFailure, cat.Sku> fetchById({required String id}) =>
       TaskEither.tryCatch(() async {
         final record = await skuStore.record(id).get(_client);
@@ -46,7 +57,6 @@ class SembastSkuRepository implements cat.ISkuRepository {
   @override
   TaskEither<cat.DomainFailure, cat.Sku> create({
     required cat.Sku sku,
-    cat.IUnitOfWork? uow,
   }) => TaskEither.tryCatch(() async {
     final existing = await skuStore.record(sku.meta.id).get(_client);
     if (existing != null) {
@@ -59,7 +69,6 @@ class SembastSkuRepository implements cat.ISkuRepository {
   @override
   TaskEither<cat.DomainFailure, cat.Sku> update({
     required cat.Sku sku,
-    cat.IUnitOfWork? uow,
   }) => TaskEither.tryCatch(() async {
     final existing = await skuStore.record(sku.meta.id).get(_client);
     if (existing == null) {
@@ -72,15 +81,10 @@ class SembastSkuRepository implements cat.ISkuRepository {
   @override
   TaskEither<cat.DomainFailure, void> delete({
     required String id,
-    cat.IUnitOfWork? uow,
   }) => TaskEither.tryCatch(() async {
     final deleted = await skuStore.record(id).delete(_client);
     if (deleted == null) throw _NotFound('Sku "$id" not found');
   }, _failureOrStorageError);
-
-  @override
-  TaskEither<cat.DomainFailure, void> clearAll({cat.IUnitOfWork? uow}) =>
-      TaskEither.tryCatch(() => skuStore.delete(_client), _storageError);
 }
 
 /// A [cat.ITraitRepository] backed by sembast.
@@ -115,7 +119,6 @@ class SembastTraitRepository implements cat.ITraitRepository {
   @override
   TaskEither<cat.DomainFailure, cat.Trait> create({
     required cat.Trait trait,
-    cat.IUnitOfWork? uow,
   }) => TaskEither.tryCatch(() async {
     final existing = await traitStore.record(trait.meta.id).get(_client);
     if (existing != null) {
@@ -128,7 +131,6 @@ class SembastTraitRepository implements cat.ITraitRepository {
   @override
   TaskEither<cat.DomainFailure, cat.Trait> update({
     required cat.Trait trait,
-    cat.IUnitOfWork? uow,
   }) => TaskEither.tryCatch(() async {
     final existing = await traitStore.record(trait.meta.id).get(_client);
     if (existing == null) {
@@ -141,15 +143,10 @@ class SembastTraitRepository implements cat.ITraitRepository {
   @override
   TaskEither<cat.DomainFailure, void> delete({
     required String id,
-    cat.IUnitOfWork? uow,
   }) => TaskEither.tryCatch(() async {
     final deleted = await traitStore.record(id).delete(_client);
     if (deleted == null) throw _NotFound('Trait "$id" not found');
   }, _failureOrStorageError);
-
-  @override
-  TaskEither<cat.DomainFailure, void> clearAll({cat.IUnitOfWork? uow}) =>
-      TaskEither.tryCatch(() => traitStore.delete(_client), _storageError);
 }
 
 /// A [cat.ITraitAttributeDefinitionRepository] backed by sembast.
@@ -203,7 +200,6 @@ class SembastTraitAttributeDefinitionRepository
   @override
   TaskEither<cat.DomainFailure, cat.TraitAttributeDefinition> create({
     required cat.TraitAttributeDefinition attribute,
-    cat.IUnitOfWork? uow,
   }) => TaskEither.tryCatch(() async {
     final existing = await traitAttributeDefinitionStore
         .record(attribute.meta.id)
@@ -221,7 +217,6 @@ class SembastTraitAttributeDefinitionRepository
   @override
   TaskEither<cat.DomainFailure, cat.TraitAttributeDefinition> update({
     required cat.TraitAttributeDefinition attribute,
-    cat.IUnitOfWork? uow,
   }) => TaskEither.tryCatch(() async {
     final existing = await traitAttributeDefinitionStore
         .record(attribute.meta.id)
@@ -239,7 +234,6 @@ class SembastTraitAttributeDefinitionRepository
   @override
   TaskEither<cat.DomainFailure, void> delete({
     required String id,
-    cat.IUnitOfWork? uow,
   }) => TaskEither.tryCatch(() async {
     final deleted =
         await traitAttributeDefinitionStore.record(id).delete(_client);
@@ -247,11 +241,6 @@ class SembastTraitAttributeDefinitionRepository
       throw _NotFound('TraitAttributeDefinition "$id" not found');
     }
   }, _failureOrStorageError);
-
-  @override
-  TaskEither<cat.DomainFailure, void> clearAll({cat.IUnitOfWork? uow}) =>
-      TaskEither.tryCatch(
-          () => traitAttributeDefinitionStore.delete(_client), _storageError);
 }
 
 /// A [cat.IInstanceRepository] backed by sembast.
@@ -277,11 +266,23 @@ class SembastInstanceRepository implements cat.IInstanceRepository {
 
   @override
   TaskEither<cat.DomainFailure, List<cat.Instance>> fetchByLocate({
-    required String locateId,
+    required String? locateId,
   }) => TaskEither.tryCatch(() async {
+    // A null locate is the unplaced group, a group like any other.
     final records = await instanceStore.find(
       _client,
       finder: Finder(filter: Filter.equals('locate_id', locateId)),
+    );
+    return records.map((r) => cat.Instance.fromJson(r.value)).toList();
+  }, _storageError);
+
+  @override
+  TaskEither<cat.DomainFailure, List<cat.Instance>> fetchBySku({
+    required String skuId,
+  }) => TaskEither.tryCatch(() async {
+    final records = await instanceStore.find(
+      _client,
+      finder: Finder(filter: Filter.equals('sku_id', skuId)),
     );
     return records.map((r) => cat.Instance.fromJson(r.value)).toList();
   }, _storageError);
@@ -297,7 +298,6 @@ class SembastInstanceRepository implements cat.IInstanceRepository {
   @override
   TaskEither<cat.DomainFailure, cat.Instance> create({
     required cat.Instance instance,
-    cat.IUnitOfWork? uow,
   }) => TaskEither.tryCatch(() async {
     final existing = await instanceStore.record(instance.meta.id).get(_client);
     if (existing != null) {
@@ -310,7 +310,6 @@ class SembastInstanceRepository implements cat.IInstanceRepository {
   @override
   TaskEither<cat.DomainFailure, cat.Instance> update({
     required cat.Instance instance,
-    cat.IUnitOfWork? uow,
   }) => TaskEither.tryCatch(() async {
     final existing = await instanceStore.record(instance.meta.id).get(_client);
     if (existing == null) {
@@ -323,15 +322,10 @@ class SembastInstanceRepository implements cat.IInstanceRepository {
   @override
   TaskEither<cat.DomainFailure, void> delete({
     required String id,
-    cat.IUnitOfWork? uow,
   }) => TaskEither.tryCatch(() async {
     final deleted = await instanceStore.record(id).delete(_client);
     if (deleted == null) throw _NotFound('Instance "$id" not found');
   }, _failureOrStorageError);
-
-  @override
-  TaskEither<cat.DomainFailure, void> clearAll({cat.IUnitOfWork? uow}) =>
-      TaskEither.tryCatch(() => instanceStore.delete(_client), _storageError);
 }
 
 /// A repository-internal "not found" signal mapped to [cat.NotFoundFailure].

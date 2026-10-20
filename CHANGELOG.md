@@ -70,6 +70,37 @@ not a work log. Group by release, newest on top; a release tag is a plain
   leaves the port in the state it found it. `probeMachineAvailable(client)`
   is a convenience returning just the boolean. New CLI `decal --port COM detect`.
 
+### Changed
+
+- **Ported to `sku_catalog` 3.0.0.** The catalog moved two majors ahead of what
+  the adoption slices were written against, and every break landed here: the
+  package dropped `Instance.serialNumber`, `Instance.imageIds`,
+  `Instance.skuModelNumber` and `Sku.manufacturerModelNumber`, its repository
+  contracts lost the `uow` parameter and `clearAll()`, and `IUnitOfWork` became
+  the `UnitOfWork` function type. What decalcd did about each:
+  - **A serial number is an attribute value, not a field.** `Device` and `Disc`
+    keep their `serialNumber:` parameter and `.serialNumber` read, but the
+    parameter folds into `attributeValues[kSerialNumberTraitAttributeKey]` — one
+    seam (`withDcSerialNumber`) plus a `cat.Instance` extension for reads — which
+    is the catalog's own shape for it. Legacy rows that stored the old top-level
+    `serial_number` key are migrated on read (`Device.fromJson`/`Disc.fromJson`),
+    and `SembastLibraryRepository.fetchDeviceBySerialCode` filters
+    `attribute_values.serial_number` — the old top-level filter stopped matching
+    the moment the value moved.
+  - **The `serializable` pairing is the package's own.** decalcd mints the ids
+    but no longer restates the invariant: `kDcSerializableTrait` and
+    `kDcSerialNumberTraitAttribute` come from `cat.SerializableTrait.define`, so
+    the `serial_number` attribute is `isUnique` and `sku`-scoped by the catalog,
+    and the trait carries the package's name. (Its uniqueness is enforced on the
+    machine write paths only — tracked in `BACKLOG.md`.)
+  - **The reads the new contracts require are implemented** on the sembast
+    adapter — `ISkuRepository.fetchByManufacturer`, `IInstanceRepository.fetchBySku`,
+    and `fetchByLocate` now taking a nullable `locateId` (the unplaced group) —
+    each with its own case, in place of the retired `clearAll` test.
+  - **`imageIds` and `skuModelNumber` are dropped rather than re-homed**: nothing
+    in decalcd filled or read them, and a disc's model number is read through its
+    media SKU.
+
 ### Keen decisions
 
 - **Repo hygiene audit (bible §9.11 bootstrap item 11).** The core repo agreed

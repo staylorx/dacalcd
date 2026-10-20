@@ -28,24 +28,42 @@ import 'serial_config.dart';
 /// generically on that trait (see [traitAttributeValues]).
 class Device extends cat.Instance {
   /// Creates a [Device] — a machine [cat.Instance] plus its connection wiring.
+  ///
+  /// [serialNumber] is sugar for the article's `serial_number` trait
+  /// attribute value: the catalog keeps a serial number as a value on the
+  /// instance (the model is serializable; the article carries one
+  /// particular number), so the parameter is folded into
+  /// [attributeValues] rather than stored beside it. A null [serialNumber]
+  /// leaves [attributeValues] as given.
+  ///
+  /// The instance parameters are not super parameters here: the fold below
+  /// runs in the initializer list.
+  // ignore: use_super_parameters
   Device({
-    required super.meta,
-    required super.skuId,
-    super.locateId,
-    required super.name,
-    super.serialNumber,
-    super.imageIds = const [],
-    super.traitIds = const [],
-    super.attributeValues = const {},
-    super.icon,
+    required cat.Meta meta,
+    required String skuId,
+    String? locateId,
+    required String name,
+    String? serialNumber,
+    List<String> traitIds = const [],
+    Map<String, dynamic> attributeValues = const {},
+    String? icon,
     this.machineSku,
     this.hidConfig,
     this.serialConfig,
     this.demoMode = false,
-  });
+  }) : super(
+         meta: meta,
+         skuId: skuId,
+         locateId: locateId,
+         name: name,
+         traitIds: traitIds,
+         attributeValues: withDcSerialNumber(attributeValues, serialNumber),
+         icon: icon,
+       );
 
   /// The trait attributes that capture a CD library machine's identity.
-  static const List<cat.TraitAttributeDefinition> traitAttributeDefinitions = [
+  static final List<cat.TraitAttributeDefinition> traitAttributeDefinitions = [
     kDcSerialNumberTraitAttribute,
   ];
 
@@ -98,7 +116,6 @@ class Device extends cat.Instance {
     locateId: locateId,
     name: name,
     serialNumber: serialNumber,
-    imageIds: imageIds,
     traitIds: traitIds,
     attributeValues: attributeValues,
     icon: icon,
@@ -115,7 +132,6 @@ class Device extends cat.Instance {
     locateId: locateId,
     name: name,
     serialNumber: serialNumber,
-    imageIds: imageIds,
     traitIds: traitIds,
     attributeValues: attributeValues,
     icon: icon,
@@ -132,7 +148,6 @@ class Device extends cat.Instance {
     locateId: locateId,
     name: name,
     serialNumber: serialNumber,
-    imageIds: imageIds,
     traitIds: traitIds,
     attributeValues: attributeValues,
     icon: icon,
@@ -161,7 +176,6 @@ class Device extends cat.Instance {
     locateId: locateId,
     name: name ?? this.name,
     serialNumber: serialNumber ?? this.serialNumber,
-    imageIds: imageIds,
     traitIds: traitIds,
     attributeValues: attributeValues,
     icon: icon,
@@ -198,8 +212,6 @@ class Device extends cat.Instance {
     skuId: skuId,
     locateId: locateId,
     name: name,
-    serialNumber: serialNumber,
-    imageIds: imageIds,
     traitIds: traitIds,
     attributeValues: attributeValues,
     icon: icon,
@@ -229,7 +241,6 @@ class Device extends cat.Instance {
     locateId: instance.locateId,
     name: instance.name,
     serialNumber: instance.serialNumber,
-    imageIds: instance.imageIds,
     traitIds: instance.traitIds,
     attributeValues: instance.attributeValues,
     icon: instance.icon,
@@ -259,9 +270,20 @@ class Device extends cat.Instance {
   /// Creates a [Device] from a snake_case record — the catalog instance fields
   /// via [cat.Instance.fromJson] plus connection config and an optional
   /// embedded [machineSku]. A legacy blob that lacks `machine_sku` is backfilled
-  /// from its old parallel identity fields (`sku`/`model`/`capacity`).
+  /// from its old parallel identity fields (`sku`/`model`/`capacity`), and one
+  /// carrying its serial number in the old top-level `serial_number` field has
+  /// it moved onto the instance's `serial_number` attribute value.
   factory Device.fromJson(Map<String, dynamic> json) {
-    final instance = cat.Instance.fromJson(json);
+    var instance = cat.Instance.fromJson(json);
+    final legacySerial = json['serial_number'];
+    if (instance.serialNumber == null && legacySerial is String) {
+      instance = instance.copyWith(
+        attributeValues: withDcSerialNumber(
+          instance.attributeValues,
+          legacySerial,
+        ),
+      );
+    }
     cat.Sku? sku;
     final skuJson = json['machine_sku'];
     if (skuJson is Map<String, dynamic> && skuJson.isNotEmpty) {
@@ -280,7 +302,6 @@ class Device extends cat.Instance {
             updatedAt: '',
           ),
           modelNumber: legacySku,
-          manufacturerModelNumber: legacyModel.isNotEmpty ? legacyModel : null,
           capacity: legacyCapacity,
         ).copyWith(
           attributeValues: {
@@ -297,7 +318,6 @@ class Device extends cat.Instance {
       locateId: instance.locateId,
       name: instance.name,
       serialNumber: instance.serialNumber,
-      imageIds: instance.imageIds,
       traitIds: instance.traitIds,
       attributeValues: instance.attributeValues,
       icon: instance.icon,
@@ -318,9 +338,7 @@ class Device extends cat.Instance {
     skuId,
     locateId,
     name,
-    skuModelNumber,
     serialNumber,
-    imageIds,
     traitIds,
     attributeValues,
     icon,

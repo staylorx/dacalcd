@@ -25,19 +25,36 @@ import '../catalog/dacal_catalog.dart';
 /// rather than stored duplicates.
 class Disc extends cat.Instance {
   /// Creates a [Disc] — a disc [cat.Instance] of [discSku].
+  ///
+  /// [serialNumber] is sugar for the article's `serial_number` trait
+  /// attribute value — the catalog keeps a serial number as a value on the
+  /// instance (the media model is serializable; this copy carries one
+  /// particular number), so the parameter is folded into
+  /// [attributeValues]. A null [serialNumber] leaves [attributeValues] as
+  /// given.
+  ///
+  /// The instance parameters are not super parameters here: the fold below
+  /// runs in the initializer list.
+  // ignore: use_super_parameters
   Disc({
-    required super.meta,
-    required super.skuId,
-    super.locateId,
-    required super.name,
-    super.skuModelNumber,
-    super.serialNumber,
-    super.imageIds = const [],
-    super.traitIds = const [],
-    super.attributeValues = const {},
-    super.icon,
+    required cat.Meta meta,
+    required String skuId,
+    String? locateId,
+    required String name,
+    String? serialNumber,
+    List<String> traitIds = const [],
+    Map<String, dynamic> attributeValues = const {},
+    String? icon,
     this.discSku,
-  });
+  }) : super(
+         meta: meta,
+         skuId: skuId,
+         locateId: locateId,
+         name: name,
+         traitIds: traitIds,
+         attributeValues: withDcSerialNumber(attributeValues, serialNumber),
+         icon: icon,
+       );
 
   /// The media SKU this disc instantiates, when loaded. The media kind and
   /// classification below project from it — never stored duplicates.
@@ -82,9 +99,7 @@ class Disc extends cat.Instance {
       skuId: skuId,
       locateId: locateId,
       name: name,
-      skuModelNumber: skuModelNumber,
       serialNumber: serialNumber,
-      imageIds: imageIds,
       traitIds: traitIds,
       attributeValues: values,
       icon: icon,
@@ -101,9 +116,6 @@ class Disc extends cat.Instance {
     skuId: skuId,
     locateId: locateId,
     name: name,
-    skuModelNumber: skuModelNumber,
-    serialNumber: serialNumber,
-    imageIds: imageIds,
     traitIds: traitIds,
     attributeValues: attributeValues,
     icon: icon,
@@ -118,9 +130,7 @@ class Disc extends cat.Instance {
         skuId: instance.skuId,
         locateId: instance.locateId,
         name: instance.name,
-        skuModelNumber: instance.skuModelNumber,
         serialNumber: instance.serialNumber,
-        imageIds: instance.imageIds,
         traitIds: instance.traitIds,
         attributeValues: instance.attributeValues,
         icon: instance.icon,
@@ -144,9 +154,10 @@ class Disc extends cat.Instance {
   /// via [cat.Instance.fromJson] plus an optional embedded media [discSku].
   ///
   /// A legacy blob that predates the catalog split (no `disc_sku`) is
-  /// backfilled: its old `label` becomes the instance name and its old `traits`
-  /// names resolve to a synthesised media SKU, so classification still lands on
-  /// a SKU rather than on the instance.
+  /// backfilled: its old `label` becomes the instance name, its old top-level
+  /// `serial_number` becomes the instance's `serial_number` attribute value,
+  /// and its old `traits` names resolve to a synthesised media SKU, so
+  /// classification still lands on a SKU rather than on the instance.
   factory Disc.fromJson(Map<String, dynamic> json) {
     var instance = cat.Instance.fromJson(json);
 
@@ -154,6 +165,17 @@ class Disc extends cat.Instance {
     final legacyLabel = json['label'] as String?;
     if (instance.name.isEmpty && (legacyLabel?.isNotEmpty ?? false)) {
       instance = instance.copyWith(name: legacyLabel);
+    }
+
+    // Pre-2.0 blobs stored the serial number as an instance *field*.
+    final legacySerial = json['serial_number'];
+    if (instance.serialNumber == null && legacySerial is String) {
+      instance = instance.copyWith(
+        attributeValues: withDcSerialNumber(
+          instance.attributeValues,
+          legacySerial,
+        ),
+      );
     }
 
     cat.Sku? sku;

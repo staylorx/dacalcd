@@ -125,18 +125,73 @@ void main() {
           .beOfType<cat.NotFoundFailure>();
     });
 
-    test('SKU repo: clearAll empties the store', () async {
+    test('SKU repo: fetchByManufacturer answers only that maker''s SKUs',
+        () async {
       await skus
           .create(
             sku: dacalMachineSku(
-              meta: const cat.Meta(id: 'a', notes: '', createdAt: '', updatedAt: ''),
-              modelNumber: 'A',
+              meta: const cat.Meta(id: 'm1', notes: '', createdAt: '', updatedAt: ''),
+              modelNumber: 'DC-300',
             ),
           )
           .run();
-      await skus.clearAll().run();
-      final all = await skus.fetchAll().run();
-      all.fold(_unexpectedLeft, (list) => list).isEmpty.should.beTrue();
+      // A disc SKU carries no manufacturer, so it is not Dacal's.
+      await skus
+          .create(
+            sku: discSku(
+              meta: const cat.Meta(id: 'd1', notes: '', createdAt: '', updatedAt: ''),
+              mediaTrait: kDcCdTrait,
+              modelNumber: 'Album X',
+            ),
+          )
+          .run();
+
+      final mine = await skus
+          .fetchByManufacturer(manufacturerId: kDcManufacturerId)
+          .run();
+      mine.fold(_unexpectedLeft, (list) => list).map((s) => s.meta.id).should
+          .be(['m1']);
+
+      final other =
+          await skus.fetchByManufacturer(manufacturerId: 'nobody').run();
+      other.fold(_unexpectedLeft, (list) => list).isEmpty.should.beTrue();
+    });
+
+    test('Instance repo: fetchBySku groups the articles of one model',
+        () async {
+      cat.Instance unit(String id, String skuId) => cat.Instance(
+            meta: cat.Meta(id: id, notes: '', createdAt: '', updatedAt: ''),
+            skuId: skuId,
+            locateId: null,
+            name: id,
+          );
+      await instances.create(instance: unit('i1', 'sku-a')).run();
+      await instances.create(instance: unit('i2', 'sku-a')).run();
+      await instances.create(instance: unit('i3', 'sku-b')).run();
+
+      final ofA = await instances.fetchBySku(skuId: 'sku-a').run();
+      ofA.fold(_unexpectedLeft, (list) => list).map((i) => i.meta.id).should
+          .be(['i1', 'i2']);
+    });
+
+    test('Instance repo: fetchByLocate(null) is the unplaced group', () async {
+      cat.Instance unit(String id, String? locateId) => cat.Instance(
+            meta: cat.Meta(id: id, notes: '', createdAt: '', updatedAt: ''),
+            skuId: 'sku-a',
+            locateId: locateId,
+            name: id,
+          );
+      await instances.create(instance: unit('placed', 'locate:main')).run();
+      await instances.create(instance: unit('loose', null)).run();
+
+      final unplaced = await instances.fetchByLocate(locateId: null).run();
+      unplaced.fold(_unexpectedLeft, (list) => list).map((i) => i.meta.id).should
+          .be(['loose']);
+
+      final placed =
+          await instances.fetchByLocate(locateId: 'locate:main').run();
+      placed.fold(_unexpectedLeft, (list) => list).map((i) => i.meta.id).should
+          .be(['placed']);
     });
 
     test('Trait repo: round-trips the canonical hid trait', () async {

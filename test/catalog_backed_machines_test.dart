@@ -103,7 +103,9 @@ void main() {
               skuId: machineSku.meta.id,
               locateId: null,
               name: 'Main Rack',
-              serialNumber: '4242',
+              attributeValues: const {
+                kSerialNumberTraitAttributeKey: '4242',
+              },
             ),
           )
           .run();

@@ -19,9 +19,10 @@ import 'package:sku_catalog/sku_catalog.dart' as cat;
 const String kDcManufacturerId = 'dc:manufacturer:dacal';
 
 /// Canonical trait-attribute key under which a serial number is stored on a
-/// serializable entity. Kept here (a plain string) so `Device.traitAttributeValues`
-/// and the storage/UI layers agree on the key without a mirror entity.
-const String kSerialNumberTraitAttributeKey = 'serial_number';
+/// serializable entity — sku_catalog's own name for the key (see
+/// [cat.SerializableTrait.serialNumberKey]).
+const String kSerialNumberTraitAttributeKey =
+    cat.SerializableTrait.serialNumberKey;
 
 /// Canonical trait-attribute key under which a disc's occupied slot number is
 /// stored on a slottable entity. A slot is an attribute **value** (placement is
@@ -39,32 +40,33 @@ const cat.Trait kDcHidTrait = cat.Trait(
 
 /// The `serializable` trait: a SKU whose serial number is captured generically
 /// via trait-attribute values.
-const cat.Trait kDcSerializableTrait = cat.Trait(
-  meta: cat.Meta(
+///
+/// Minted from sku_catalog's own pair ([cat.SerializableTrait.define]) with
+/// decalcd's ids: the package names this classification *and* the unique
+/// `serial_number` attribute it contributes, so decalcd states that invariant
+/// once, by adopting it. The trait name is the package's
+/// ([cat.SerializableTrait.traitName]).
+final cat.Trait kDcSerializableTrait = _serializableTrait.trait;
+
+/// The canonical `serial_number` trait attribute, hanging off
+/// [kDcSerializableTrait] — unique, as the package's pair defines it.
+final cat.TraitAttributeDefinition kDcSerialNumberTraitAttribute =
+    _serializableTrait.serialNumber;
+
+final cat.SerializableTrait _serializableTrait = cat.SerializableTrait.define(
+  traitMeta: cat.Meta(
     id: 'dc:trait:serializable',
     notes: '',
     createdAt: '',
     updatedAt: '',
   ),
-  name: 'serializable',
-  scope: [cat.TraitScope.sku],
+  attributeMeta: cat.Meta(
+    id: 'dc:trait_attribute:serial_number',
+    notes: '',
+    createdAt: '',
+    updatedAt: '',
+  ),
 );
-
-/// The canonical `serial_number` trait attribute, hanging off
-/// [kDcSerializableTrait] — the real sku_catalog definition.
-const cat.TraitAttributeDefinition kDcSerialNumberTraitAttribute =
-    cat.TraitAttributeDefinition(
-      meta: cat.Meta(
-        id: 'dc:trait_attribute:serial_number',
-        notes: '',
-        createdAt: '',
-        updatedAt: '',
-      ),
-      traitId: 'dc:trait:serializable',
-      key: kSerialNumberTraitAttributeKey,
-      displayLabel: 'Serial Number',
-      dataType: cat.DataType.string,
-    );
 
 /// The `cd` trait: a disc SKU whose media kind is a compact disc.
 const cat.Trait kDcCdTrait = cat.Trait(
@@ -114,8 +116,8 @@ const cat.TraitAttributeDefinition kDcSlotNumberTraitAttribute =
 
 /// Registry of every canonical trait by name, used to resolve a persisted
 /// trait name back to its canonical [cat.Trait] on load (see `Disc.fromJson`).
-const Map<String, cat.Trait> kCanonicalTraits = {
-  'serializable': kDcSerializableTrait,
+final Map<String, cat.Trait> kCanonicalTraits = {
+  kDcSerializableTrait.name: kDcSerializableTrait,
   'hid': kDcHidTrait,
   'cd': kDcCdTrait,
   'dvd': kDcDvdTrait,
@@ -125,13 +127,39 @@ const Map<String, cat.Trait> kCanonicalTraits = {
 /// Registry of every canonical trait by id, used to resolve the trait ids a
 /// catalog SKU carries back to their canonical [cat.Trait] (see
 /// `Disc.traits`).
-const Map<String, cat.Trait> kCanonicalTraitsById = {
+final Map<String, cat.Trait> kCanonicalTraitsById = {
   'dc:trait:serializable': kDcSerializableTrait,
   'dc:trait:hid': kDcHidTrait,
   'dc:trait:cd': kDcCdTrait,
   'dc:trait:dvd': kDcDvdTrait,
   'dc:trait:slottable': kDcSlottableTrait,
 };
+
+/// The serial number an article carries, read from its `serial_number` trait
+/// attribute value.
+///
+/// A serial number is **not** a field on an article: the *model* is serializable
+/// (a trait on the SKU) and the *article* carries one particular number — a
+/// value under [kSerialNumberTraitAttributeKey] — which is the catalog's wire
+/// shape for it. This extension is decalcd's one read seam for that value; a
+/// write goes in through an entity constructor's `serialNumber` parameter, which
+/// folds it into the same map.
+extension SerialNumberOnCatalogInstance on cat.Instance {
+  /// The article's serial number, or null when none is recorded.
+  String? get serialNumber =>
+      attributeValues[kSerialNumberTraitAttributeKey] as String?;
+}
+
+/// Records [serialNumber] on [attributeValues] under
+/// [kSerialNumberTraitAttributeKey] — the one place the entity constructors put
+/// an article's serial number. A null [serialNumber] leaves the map as given
+/// (the map is the authority when no serial is passed).
+Map<String, dynamic> withDcSerialNumber(
+  Map<String, dynamic> attributeValues,
+  String? serialNumber,
+) => serialNumber == null
+    ? attributeValues
+    : {...attributeValues, kSerialNumberTraitAttributeKey: serialNumber};
 
 /// A CD library machine (e.g. a Dacal `DC-300`) as a catalog SKU — the *model*
 /// class. It carries the `hid` + `serializable` traits as its classification
@@ -144,7 +172,6 @@ const Map<String, cat.Trait> kCanonicalTraitsById = {
 cat.Sku dacalMachineSku({
   required cat.Meta meta,
   required String modelNumber,
-  String? manufacturerModelNumber,
   int capacity = 150,
   List<String> extraTraitIds = const [],
 }) =>
@@ -152,7 +179,6 @@ cat.Sku dacalMachineSku({
       meta: meta,
       manufacturerId: kDcManufacturerId,
       modelNumber: modelNumber,
-      manufacturerModelNumber: manufacturerModelNumber,
       traitIds: [
         kDcHidTrait.meta.id,
         kDcSerializableTrait.meta.id,
@@ -234,5 +260,5 @@ cat.Instance machineInstance({
       skuId: skuId,
       locateId: locateId,
       name: name,
-      serialNumber: serialNumber,
+      attributeValues: withDcSerialNumber(const {}, serialNumber),
     );

@@ -18,7 +18,10 @@ void main() {
   group('catalog traits', () {
     test('hid/serializable/cd/dvd are sku_catalog sku-scoped Trait records', () {
       expect(kDcHidTrait.name, 'hid');
-      expect(kDcSerializableTrait.name, 'serializable');
+      // The serializable pairing is the package's own (SerializableTrait):
+      // decalcd mints the ids; name, scopes and uniqueness are the catalog's.
+      expect(kDcSerializableTrait.name, cat.SerializableTrait.traitName);
+      expect(kDcSerialNumberTraitAttribute.isUnique, isTrue);
       expect(kDcCdTrait.name, 'cd');
       expect(kDcDvdTrait.name, 'dvd');
       for (final t in [kDcHidTrait, kDcSerializableTrait, kDcCdTrait, kDcDvdTrait]) {
