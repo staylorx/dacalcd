@@ -444,9 +444,10 @@ packages:
   sku_catalog:
     dependency: "direct main"
     description:
-      path: "../../sku_catalog"
-      relative: true
-    source: path
+      name: sku_catalog
+      sha256: "08cf9a0f22cd54d4e63f68b8678691ca4b144c20bf2c0e1deb97498dc203924f"
+      url: "https://pub.dev"
+    source: hosted
     version: "4.0.0"
   source_map_stack_trace:
     dependency: transitive

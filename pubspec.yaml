@@ -16,8 +16,10 @@ dependencies:
   path: ^1.9.0
   sembast: ^3.8.11
   serial_port_win32: ^3.0.0
-  sku_catalog:
-    path: ../../sku_catalog
+  # Hosted and pinned: CI checks out this repo alone, so a path dep over a
+  # sibling clone cannot resolve there. For cross-repo work against the local
+  # clone, swap this line for `path: ../../sku_catalog`.
+  sku_catalog: ^4.0.0
   win32: ^6.4.0
 
 dev_dependencies:

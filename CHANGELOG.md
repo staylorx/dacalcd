@@ -72,6 +72,15 @@ not a work log. Group by release, newest on top; a release tag is a plain
 
 ### Changed
 
+- **The catalog comes from pub.dev now, pinned `^4.0.0`.** It was a `path:`
+  dependency on a sibling clone, which resolved locally and nowhere else: the
+  workflow checks out this repo alone, so every CI run failed at *Install
+  dependencies* and the gate never reached analyze or test. The pin carries the
+  same 4.0.0 the tree is ported to — the suite passes against the published
+  archive, and decalcd never used the repo-only `in_memory.dart` door — and the
+  cost is stated where it bites, in `pubspec.yaml`: work against the local clone
+  swaps that one line back to `path: ../../sku_catalog`.
+
 - **Ported to `sku_catalog` 4.0.0.** The release opens the failure root:
   `DomainFailure` is `abstract base` again and the package's own leaves now hang
   off a closed `CatalogFailure`. No call site had to move — nothing in decalcd
