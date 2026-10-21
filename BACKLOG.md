@@ -26,6 +26,14 @@ section.
       must not carry the reflow. Land the repo-wide reformat as its own commit
       (touching nothing else), or pin the gate, and keep it out of feature work.
 
+- [ ] **CI is red at `pub get`: the catalog is a `path:` dep.** The workflow
+      checks out only this repo, so `sku_catalog: {path: ../../sku_catalog}` has
+      nothing to resolve — every run fails at *Install dependencies*, on every
+      commit (it predates the current work). `sku_catalog` is published on
+      pub.dev up to 4.0.0, so `sku_catalog: ^4.0.0` is a working pin; the path
+      dep stays the dev-time choice for cross-repo work. Pick one and get the
+      gate green.
+
 - [ ] **Finish multi-machine serial: drop the residual single-machine
       assumptions.** The per-machine connection path is done (`Device.serialConfig`,
       per-machine list/fetch/select/auto-detect, no shared app-wide port), but core

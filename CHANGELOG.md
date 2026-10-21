@@ -72,6 +72,21 @@ not a work log. Group by release, newest on top; a release tag is a plain
 
 ### Changed
 
+- **Ported to `sku_catalog` 4.0.0.** The release opens the failure root:
+  `DomainFailure` is `abstract base` again and the package's own leaves now hang
+  off a closed `CatalogFailure`. No call site had to move — nothing in decalcd
+  switches on a catalog failure — but decalcd is the consumer that change was
+  made for, so the family took the alignment: **`DecalFailure` now extends
+  `cat.DomainFailure`**, and inherits the root's `message` and `props` instead of
+  restating them. It stays `sealed` (decalcd's closed set, the counterpart of
+  `CatalogFailure`), and the catalog's set is a *sibling* of it, not a member.
+  The serial layer's `DacalFailure` is deliberately left alone: it describes a
+  link (open failed, frame undecodable, device rejected), never a catalog
+  composition, and its leaves carry their own fields rather than a message.
+  `test/failure_vocabulary_test.dart` pins both halves — a `DecalFailure` is a
+  `DomainFailure`, a `CatalogFailure` is not a `DecalFailure`, and the switch
+  over ours still needs no default.
+
 - **Ported to `sku_catalog` 3.0.0.** The catalog moved two majors ahead of what
   the adoption slices were written against, and every break landed here: the
   package dropped `Instance.serialNumber`, `Instance.imageIds`,

@@ -1,19 +1,20 @@
-import 'package:equatable/equatable.dart';
+import 'package:sku_catalog/sku_catalog.dart' as cat;
 
 /// Base of this layer's failure hierarchy — every way the library can fail.
 ///
-/// `sealed`, so the leaves are exhaustively switchable: a consumer can list
-/// every failure this package can return and let the analyzer prove the list
-/// complete. Never thrown from the domain.
-sealed class DecalFailure extends Equatable {
-  /// Message describing what went wrong.
-  final String message;
-
+/// It descends from the catalog's **shared root** ([cat.DomainFailure]) — the
+/// shape sku_catalog 4.0.0 opened the root for. A product keeps its own failure
+/// family and its failures travel the same channel as the catalog's, instead of
+/// being translated into the catalog's vocabulary at every call. The catalog's
+/// own closed set is `CatalogFailure`; ours is this one: `sealed`, so the leaves
+/// stay exhaustively switchable, and the two families are **siblings** under the
+/// root rather than members of one another.
+///
+/// [message] and the equality [props] come from the root; a leaf adds only what
+/// it needs. Never thrown from the domain.
+sealed class DecalFailure extends cat.DomainFailure {
   /// Creates a [DecalFailure].
-  const DecalFailure(this.message);
-
-  @override
-  List<Object> get props => [message];
+  const DecalFailure(super.message);
 }
 
 /// A requested entity was not found.
