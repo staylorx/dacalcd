@@ -24,7 +24,7 @@ below is this repo's local wiring only; the doctrine is linked, not restated
 
 One package that IS the workspace root. No `workspace:` list, no `melos.yaml`;
 the `melos:` key lives in `pubspec.yaml` (`useRootAsPackage: true`). That buys
-the tool belt: one CI entry point (`melos run <task>`) plus the release flow
+the tool belt: one gate entry point (`melos run <task>`) plus the release flow
 (`melos version` → changelog + tag, `melos publish`). Release tag is a plain
 `vX.Y.Z`, not package-prefixed.
 
@@ -43,8 +43,9 @@ Contracts (`ILibraryRepository`, config store, unit-of-work) stay public in
 
 ## Housekeeping
 
-- CI entry point: `dart run melos run analyze` and `dart run melos run test`
-  (CI calls the script contract, never raw `dart analyze` / `dart test`).
+- Gate entry point: `dart run melos run analyze` and `dart run melos run test`
+  (the gate calls the script contract, never raw `dart analyze` / `dart test`;
+  there is no hosted CI — this estate runs no GitHub Actions).
 - Clean before committing: `dart run melos run analyze` = `dart analyze
   --fatal-infos --fatal-warnings` (**zero diagnostics of any severity**) and
   `dart run melos run test`.
